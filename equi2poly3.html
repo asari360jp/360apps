@@ -855,10 +855,14 @@ function convertEquirectToRhombicuboctahedron(equirectImage, faceSize){
   const {V, triangles, squares} = rhombicuboctahedronData();
   const faces = [];
 
-  // 三角形面（8個）
+  // 正方形面の基準辺長を計算
+  const firstSquare = squares[0].map(idx => V[idx]);
+  const refEdgeLen = projectedAvgEdgeLenIfFitted(firstSquare);
+
+  // 三角形面（8個）- 正方形と辺長を合わせる
   triangles.forEach((tri, i)=>{
-    const A = V[tri[0]], B = V[tri[1]], C = V[tri[2]];
-    const canvas = renderIcosaFace(eData, ew, eh, A, B, C, faceSize);
+    const poly3D = tri.map(idx => V[idx]);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize, refEdgeLen);
     faces.push({name:`tri_${String(i).padStart(2,'0')}`, canvas});
   });
 
@@ -868,6 +872,18 @@ function convertEquirectToRhombicuboctahedron(equirectImage, faceSize){
     const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
     faces.push({name:`sq_${String(i).padStart(2,'0')}`, canvas});
   });
+
+  // ヘルパー関数（切頂二十面体から流用）
+  function projectedAvgEdgeLenIfFitted(poly3D){
+    const n = faceNormalOfPolygon(poly3D);
+    const {u,v} = basisUVfromNormal(n);
+    const raw2 = projectPolyToPlane2D(poly3D, u, v);
+    if (signedArea2D(raw2) < 0) raw2.reverse();
+    const {minx,miny,maxx,maxy} = bounds2D(raw2);
+    const rawW = maxx-minx, rawH = maxy-miny;
+    const fitScale = 0.9 * Math.min(faceSize/rawW, faceSize/rawH);
+    return avgEdgeLen2D(raw2) * fitScale;
+  }
 
   return faces;
 }
