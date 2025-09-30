@@ -1,12 +1,12 @@
 # asari360jp 360apps
 
-360イメージ（エクイレクタングラー画像）用のWebアプリです。
+360イメージ（エクイレクタングラー画像）用のWebアプリです。  
 ブラウザ上で完結し、画像をアップロードするだけで簡単に利用できます。
 
 ## Included Apps
 - **equi2poly3.html** - エクイレクタングラー → 多面体変換 [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/equi2poly3.html)
 
-> A browser-based web apps for 360 equirectangular images.
+> A browser-based web apps for 360 equirectangular images.  
 > No installation required - simply upload and use directly in your browser.
 
 ---
