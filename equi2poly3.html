@@ -1,0 +1,1240 @@
+<!--
+/**
+ * 360 Image DEEP HACK Equi2Poly3
+ * 
+ * @description 360イメージを編集するWebアプリケーション（エクイレクタングラーを多面体に変換）
+ * @author いけだじゅんじ (enhanced by Claude, updated by ChatGPT)
+ * @version 1.1
+ * @date 20250831
+ * @license Public Domain - 再配布、改変自由、一切の制限なし
+ * @disclaimer 
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+ *   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
+ *   このソフトウェアは無保証で提供され、作者は一切の責任を負いません。
+ *   - メモリ不足によるブラウザクラッシュの可能性があります
+ *   - 処理結果の品質は保証されません
+ *   - 重要なデータは事前にバックアップしてください
+ *   - 本ソフトウェアの使用は自己責任でお願いします
+ *
+ * 本アプリケーションは JSZip (https://stuk.github.io/jszip/)(MIT License) を利用しています
+ * 
+ * v 1.0 リリース
+ * v 1.1 正二十面体の各面の形状を修正（）
+ * Acknowledgements
+ * 正二十面体の各面形状の検証・改善に協力いただいた asari さんに感謝します 🙏
+* CHANGELOG 20250906 
+ *
+ * v 1.2 ランタイム反転と上下面の向き調整、展開線描画、ZIP/タイル強化（2025-09-06）
+ *  - [変換元の扱い] 変換実行時にだけ処理分岐。正六面体はオリジナルをそのまま使用。
+ *     正二十面体 / 切頂二十面体は、実行直前にオリジナルを「水平反転」したキャンバスで置換。
+ *     (createHorizontallyFlippedCanvas, originalImageの導入で副作用を回避)
+ *  - [バグ修正] file選択で読み込んだ場合にも originalImage を確実にセット（D&Dと挙動を統一）。
+ *  - [紙の展開図向け] 正六面体の上下面の出力を印刷組み立て用に最適化。
+ *       poly_ny(-Y).png : 左右反転 → 時計回りに90°回転
+ *       poly_py(+Y).png : 左右反転 → 反時計回りに90°回転
+ *     (flipHThenRotate90 をポストプロセスで適用。サンプリング式は未変更)
+ *  - [新機能] 「展開線をエクイ画像に描く」出力を追加（色/太さ指定可）。
+ *     多面体の全エッジを球面補間でサンプリングし、経度またぎを考慮してequirectに描画・保存。
+ *  - [出力強化] 生成面の一括ZIP保存(JSZip)／1枚タイル生成と保存（プレビュー付き）を整備。
+ *  - [UI/微修正] 品質ラベルのリアルタイム更新、アラート文言調整、内部関数の整理。
+ *
+ * 既知の注意:
+ *  - 大容量画像ではブラウザのメモリ使用量が増えます。保存前プレビューでサイズをご確認ください。
+ *  - equirectの極付近では画素密度の関係でにじみが見える場合があります（仕様）。
+ *
+ * クレジット:
+ *  - Code & Design: いけだじゅんじ
+ *  - Enhanced with: Claude / ChatGPT（実装提案・バグ修正・最適化）
+ *  - Third-party: JSZip (MIT)
+ */
+-->
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<!-- 追加：ZIP生成ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Equirect → Cube / Icosahedron / Truncated Icosahedron Exporter v1.2</title>
+<style>
+  :root{
+    --bg1:#1e3c72; --bg2:#2a5298;
+    --panel: rgba(255,255,255,0.1);
+    --accent:#4CAF50;
+  }
+  body{
+    margin:0; padding:20px; color:#fff;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  }
+  .container{ max-width:1200px; margin:0 auto; }
+  h1{ margin:0 0 12px; font-size:22px; }
+  .row{ display:grid; gap:12px; grid-template-columns: 1fr; }
+  @media(min-width:900px){ .row{ grid-template-columns: 1fr 1fr; } }
+  .card{
+    background:var(--panel); border:1px solid rgba(255,255,255,0.2);
+    border-radius:16px; padding:16px; backdrop-filter: blur(8px);
+  }
+  label{ display:block; font-size:14px; opacity:0.9; margin-bottom:6px; }
+  input[type="number"], select, input[type="text"]{
+    width:100%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.25);
+    background:rgba(0,0,0,0.2); color:#fff; outline:none;
+  }
+  .range-row{ display:flex; align-items:center; gap:8px; }
+  input[type="range"]{ flex:1; }
+  .btn{
+    background:var(--accent); border:none; color:#fff; padding:10px 16px; border-radius:12px; cursor:pointer;
+    font-weight:600; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+  .btn.secondary{ background:#2196F3; }
+  .btn.ghost{ background:transparent; border:1px solid rgba(255,255,255,0.35); }
+  .upload-area{
+    border:2px dashed var(--accent); border-radius:12px; padding:14px; text-align:center;
+    background:rgba(255,255,255,0.08);
+  }
+  .upload-area.dragover{ border-color:#2196F3; background:rgba(255,255,255,0.12); }
+  .faces{
+    display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start;
+  }
+  .face{
+    background:rgba(0,0,0,0.2); border-radius:12px; padding:10px; text-align:center; border:1px solid rgba(255,255,255,0.15);
+  }
+  .face canvas{ display:block; max-width:256px; height:auto; border-radius:8px; }
+  .face p{ margin:8px 0 8px; font-size:12px; opacity:0.9; }
+  .grid-preview{ max-width:100%; border-radius:12px; }
+  .mini{ font-size:12px; opacity:0.85; }
+  .split{ display:flex; gap:10px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>360エクイ → 正六面体／正二十面体／カクカク⚽️サッカーボール・切頂二十面体　変換 v1.2 </h1>
+
+  <div class="row">
+    <!-- 入力 -->
+    <div class="card">
+      <h2 style="margin-top:0;font-size:18px;">1) 入力</h2>
+      <div class="upload-area" id="uploadArea">
+        <p class="mini">ここに画像をドラッグ＆ドロップ / または下のボタンから選択</p>
+        <input type="file" id="fileInput" accept="image/*" />
+      </div>
+      <div id="inputInfo" class="mini" style="margin-top:8px; opacity:.8;">未読み込み</div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="card">
+      <h2 style="margin-top:0;font-size:18px;">2) 設定</h2>
+      <div class="split">
+        <div style="flex:1; min-width:220px;">
+          <label>多面体の種類</label>
+          <select id="polyType">
+            <option value="cube">正六面体（6正方）</option>
+            <option value="icosa">正二十面体（20三角）</option>
+            <option value="truncated">切頂二十面体（12五角+20六角）</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <label>面サイズ（推奨：キューブ=幅/4、二十面/切頂=幅/6〜/8）</label>
+          <input type="number" id="faceSize" min="64" max="4096" step="1" value="512" />
+        </div>
+      </div>
+
+      <div id="truncRow" style="margin-top:10px; display:none;">
+        <label>切頂率 t（0.25〜0.4 が実用）</label>
+        <div class="range-row">
+          <input type="range" id="truncRange" min="0.20" max="0.45" step="0.005" value="0.333" />
+          <input type="number" id="truncNumber" min="0.20" max="0.45" step="0.001" value="0.333" style="width:100px;" />
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <button class="btn" id="runBtn">変換を実行</button>
+        <button class="btn ghost" id="clearBtn">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 出力 -->
+  <div class="card" style="margin-top:14px;">
+    <h2 style="margin-top:0;font-size:18px;">3) 出力形式</h2>
+    <div class="split">
+      <div style="flex:1; min-width:220px;">
+        <label>保存形式</label>
+        <select id="fmt">
+          <option value="image/png">PNG（可逆）</option>
+          <option value="image/jpeg">JPEG（非可逆）</option>
+          <option value="image/webp">WebP（ブラウザ対応時）</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <label>品質（JPEG/WebPのみ有効）</label>
+        <div class="range-row">
+          <input type="range" id="qualityRange" min="0.5" max="1" value="0.92" step="0.01" />
+          <span id="qualityLabel" class="mini">0.92</span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <label>出力名プレフィックス</label>
+        <input type="text" id="prefix" value="poly_" />
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button class="btn secondary" id="dlAllBtn">面を一括ZIP保存</button>
+      <button class="btn" id="gridBtn">1枚タイルを生成</button>
+      <a id="gridDownload" class="btn ghost" style="display:none;">タイル画像を保存</a>
+      <div id="gridInfo" class="mini" style="margin-top:8px; opacity:.85;"></div>
+    </div>
+    
+    <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+  <button class="btn ghost" id="drawGuideBtn">展開線をエクイ画像に描く</button>
+  <label class="mini" style="margin:0;">色 <input type="color" id="guideColor" value="#ff2d55" style="vertical-align:middle;"></label>
+  <label class="mini" style="margin:0;">太さ(px) <input type="number" id="guideWidth" value="2" min="1" max="8" step="1" style="width:70px;vertical-align:middle;"></label>
+</div>
+
+    
+  </div>
+  
+  
+
+  <!-- プレビュー -->
+  <div class="card" style="margin-top:14px;">
+    <h2 style="margin-top:0;font-size:18px;">プレビュー</h2>
+    <div id="faces" class="faces"></div>
+    <div id="gridWrap" style="margin-top:16px; display:none;">
+      <p class="mini">タイルプレビュー：</p>
+      <canvas id="gridCanvas" class="grid-preview"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= 共有ユーティリティ ============================= */
+// cubeの特定に二面が修正のため追加 20250906+
+// 水平反転してから90度回転（dir: 'cw' | 'ccw'）
+function flipHThenRotate90(srcCanvas, dir='cw'){
+  const w = srcCanvas.width, h = srcCanvas.height; // 正方形前提
+  // 1) 水平反転
+  const flipped = document.createElement('canvas');
+  flipped.width = w; flipped.height = h;
+  const fctx = flipped.getContext('2d');
+  fctx.translate(w, 0);
+  fctx.scale(-1, 1);
+  fctx.drawImage(srcCanvas, 0, 0);
+
+  // 2) 90度回転
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h; // 正方形なので同じ
+  const octx = out.getContext('2d');
+  if (dir === 'cw'){          // 時計回り
+    octx.translate(w, 0);
+    octx.rotate(Math.PI / 2);
+  } else {                    // 反時計回り
+    octx.translate(0, h);
+    octx.rotate(-Math.PI / 2);
+  }
+  octx.drawImage(flipped, 0, 0);
+  return out;
+}
+
+// 水平反転したキャンバスを返す（img/canvas どちらでもOK） 20250906+ for 多重面体での反転のため
+function createHorizontallyFlippedCanvas(img){
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext('2d');
+  ctx.translate(c.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(img, 0, 0);
+  return c; // width/heightを持つので既存の処理にそのまま渡せる
+}
+
+
+function dirToLonLat(x,y,z){
+  const r = Math.hypot(x,y,z);
+  const lat = Math.asin(y / r);
+  const lon = Math.atan2(x, z);
+  return {lat, lon};
+}
+
+// バリセン判定：内部なら {inside:true,u,v,w} を返す（正二十面体描画で使用）
+function pointInTri(px, py, ax, ay, bx, by, cx, cy){
+  const v0x = cx - ax, v0y = cy - ay;
+  const v1x = bx - ax, v1y = by - ay;
+  const v2x = px - ax, v2y = py - ay;
+  const den = v0x*v1y - v1x*v0y;
+  const u = (v2x*v1y - v1x*v2y) / den;
+  const v = (v0x*v2y - v2x*v0y) / den;
+  const w = 1 - u - v;
+  const inside = (u >= 0 && v >= 0 && w >= 0);
+  return {inside, u, v, w};
+}
+
+// 3D三頂点の線形→正規化（方向ベクトル取得）
+function baryToDir(u,v,w, A,B,C){
+  const x = u*A[0] + v*B[0] + w*C[0];
+  const y = u*A[1] + v*B[1] + w*C[1];
+  const z = u*A[2] + v*B[2] + w*C[2];
+  const inv = 1/Math.hypot(x,y,z);
+  return [x*inv, y*inv, z*inv];
+}
+
+// エクイ画像から双線形サンプリング（経度ラップ・緯度クランプ）
+function bilinearInterpolateEquirect(eData, x, y, w, h){
+  x = ((x % w) + w) % w;
+  y = Math.max(0, Math.min(h - 1, y));
+
+  const x0 = Math.floor(x), x1 = (x0 + 1) % w;
+  const y0 = Math.floor(y), y1 = Math.min(h - 1, y0 + 1);
+  const dx = x - x0, dy = y - y0;
+
+  const idx = (xx,yy)=> (yy*w + xx) * 4;
+
+  const i00 = idx(x0,y0), i10 = idx(x1,y0), i01 = idx(x0,y1), i11 = idx(x1,y1);
+  const c00 = [eData[i00], eData[i00+1], eData[i00+2], eData[i00+3]];
+  const c10 = [eData[i10], eData[i10+1], eData[i10+2], eData[i10+3]];
+  const c01 = [eData[i01], eData[i01+1], eData[i01+2], eData[i01+3]];
+  const c11 = [eData[i11], eData[i11+1], eData[i11+2], eData[i11+3]];
+
+  const c0 = c00.map((v,i)=> v*(1-dx) + c10[i]*dx);
+  const c1 = c01.map((v,i)=> v*(1-dx) + c11[i]*dx);
+  const c  = c0.map((v,i)=> v*(1-dy) + c1[i]*dy);
+  return c;
+}
+
+// 2Dポリゴンの平均辺長（隣接点距離の平均）
+function avgEdgeLen2D(poly2){
+  let s = 0;
+  for(let i=0;i<poly2.length;i++){
+    const a = poly2[i], b = poly2[(i+1)%poly2.length];
+    s += Math.hypot(b[0]-a[0], b[1]-a[1]);
+  }
+  return s / poly2.length;
+}
+
+
+/* ============================= 正二十面体 ============================= */
+function icosahedronData(){
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const V = [
+    [-1,  PHI, 0], [ 1,  PHI, 0], [-1, -PHI, 0], [ 1, -PHI, 0],
+    [ 0, -1,  PHI], [ 0,  1,  PHI], [ 0, -1, -PHI], [ 0,  1, -PHI],
+    [ PHI, 0, -1], [ PHI, 0,  1], [-PHI, 0, -1], [-PHI, 0,  1],
+  ].map(([x,y,z])=>{
+    const inv = 1/Math.hypot(x,y,z);
+    return [x*inv, y*inv, z*inv];
+  });
+  const F = [
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
+  ];
+  return {V,F};
+}
+
+function renderIcosaFace(equirectData, ew, eh, A, B, C, faceSize){
+  const canvas = document.createElement('canvas');
+  canvas.width = faceSize; canvas.height = faceSize;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(faceSize, faceSize);
+  const data = img.data;
+
+  // 正三角形（side=faceSize）を正方形キャンバス内に内接させる
+  const side = faceSize;
+  const h = side * Math.sqrt(3) / 2;               // 正三角形の高さ
+  const marginY = Math.max(0, (faceSize - h) / 2); // 垂直方向センタリング
+
+  // 頂点座標（上：A、下左：B、下右：C）
+  const ax = faceSize / 2,        ay = marginY;
+  const bx = (faceSize - side) / 2, by = marginY + h;
+  const cx = (faceSize + side) / 2, cy = marginY + h;
+
+
+  for(let py=0; py<faceSize; py++){
+    for(let px=0; px<faceSize; px++){
+      const {inside,u,v,w} = pointInTri(px+0.5, py+0.5, ax,ay, bx,by, cx,cy);
+      if(!inside) continue;
+
+      const [dx,dy,dz] = baryToDir(u,v,w, A,B,C);
+      const {lat, lon} = dirToLonLat(dx,dy,dz);
+      const ex = ((lon + Math.PI) / (2*Math.PI)) * ew;
+      const ey = ((Math.PI/2 - lat) / Math.PI) * eh;
+      const c = bilinearInterpolateEquirect(equirectData, ex, ey, ew, eh);
+
+      const idx = (py*faceSize + px)*4;
+      data[idx  ] = c[0];
+      data[idx+1] = c[1];
+      data[idx+2] = c[2];
+      data[idx+3] = c[3];
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return canvas;
+}
+
+function convertEquirectToIcosahedron(equirectImage, faceSize){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const equirectData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const {V,F} = icosahedronData();
+  const faces = [];
+  F.forEach((tri, i)=>{
+    const A = V[tri[0]], B = V[tri[1]], C = V[tri[2]];
+    const canvas = renderIcosaFace(equirectData, ew, eh, A,B,C, faceSize);
+    faces.push({ name:`tri_${i}`, canvas });
+  });
+  return faces;
+}
+
+/* ============================= 切頂二十面体（データ生成） ============================= */
+function edgeKey(a,b){ return (a<b) ? `${a}_${b}` : `${b}_${a}`; }
+
+function slerpLikeNormalize(A,B,t){
+  const x = (1-t)*A[0] + t*B[0];
+  const y = (1-t)*A[1] + t*B[1];
+  const z = (1-t)*A[2] + t*B[2];
+  const inv = 1/Math.hypot(x,y,z);
+  return [x*inv, y*inv, z*inv];
+}
+
+function cross(X,Y){ return [X[1]*Y[2]-X[2]*Y[1], X[2]*Y[0]-X[0]*Y[2], X[0]*Y[1]-X[1]*Y[0]]; }
+function add(X,Y){ return [X[0]+Y[0], X[1]+Y[1], X[2]+Y[2]]; }
+
+function truncatedIcosahedronData(t=1/3){
+  const {V,F} = icosahedronData();
+
+  // 全エッジ収集
+  const edgeMap = new Map();
+  F.forEach((tri, fi)=>{
+    for(let k=0;k<3;k++){
+      const a = tri[k], b = tri[(k+1)%3];
+      const key = edgeKey(a,b);
+      if(!edgeMap.has(key)) edgeMap.set(key, {a: Math.min(a,b), b: Math.max(a,b), faces: new Set()});
+      edgeMap.get(key).faces.add(fi);
+    }
+  });
+
+  // 端点側切頂点（有向）
+  const Epoints = new Map();
+  edgeMap.forEach(({a,b})=>{
+    const A = V[a], B = V[b];
+    Epoints.set(`${a}_${b}`, slerpLikeNormalize(A,B,t));
+    Epoints.set(`${b}_${a}`, slerpLikeNormalize(B,A,t));
+  });
+
+  // 五角：各元頂点aの周り（12枚）
+  const pentagons = [];
+  for(let a=0; a<V.length; a++){
+    const connected = [];
+    edgeMap.forEach(({a:ea,b:eb})=>{
+      if(ea===a) connected.push(eb);
+      else if(eb===a) connected.push(ea);
+    });
+    const pts = connected.map(b => Epoints.get(`${a}_${b}`));
+    const n = V[a];
+    const tmp = Math.abs(n[0])<0.9 ? [1,0,0] : [0,1,0];
+    // u = normalize(tmp × n)
+    let ux = tmp[1]*n[2] - tmp[2]*n[1];
+    let uy = tmp[2]*n[0] - tmp[0]*n[2];
+    let uz = tmp[0]*n[1] - tmp[1]*n[0];
+    let invu = 1/Math.hypot(ux,uy,uz);
+    const u = [ux*invu, uy*invu, uz*invu];
+    // v = n × u
+    const vx = n[1]*u[2] - n[2]*u[1];
+    const vy = n[2]*u[0] - n[0]*u[2];
+    const vz = n[0]*u[1] - n[1]*u[0];
+    const v = [vx,vy,vz];
+
+    const withAng = pts.map(p=>{
+      const ang = Math.atan2( p[0]*v[0]+p[1]*v[1]+p[2]*v[2], p[0]*u[0]+p[1]*u[1]+p[2]*u[2] );
+      return {p, ang};
+    }).sort((a,b)=>a.ang-b.ang);
+
+    pentagons.push(withAng.map(o=>o.p));
+  }
+
+  // 六角：各元三角面（20枚）
+  const hexagons = [];
+  F.forEach(([a,b,c])=>{
+    const Pab = Epoints.get(`${a}_${b}`);
+    const Pba = Epoints.get(`${b}_${a}`);
+    const Pbc = Epoints.get(`${b}_${c}`);
+    const Pcb = Epoints.get(`${c}_${b}`);
+    const Pca = Epoints.get(`${c}_${a}`);
+    const Pac = Epoints.get(`${a}_${c}`);
+
+    const A=V[a], B=V[b], C=V[c];
+    let n = add(add(cross(A,B), cross(B,C)), cross(C,A));
+    const inv = 1/Math.hypot(n[0],n[1],n[2]); n = [n[0]*inv, n[1]*inv, n[2]*inv];
+
+    const tmp = Math.abs(n[0])<0.9 ? [1,0,0] : [0,1,0];
+    let ux = tmp[1]*n[2] - tmp[2]*n[1];
+    let uy = tmp[2]*n[0] - tmp[0]*n[2];
+    let uz = tmp[0]*n[1] - tmp[1]*n[0];
+    let invu = 1/Math.hypot(ux,uy,uz);
+    const u = [ux*invu, uy*invu, uz*invu];
+    const vx = n[1]*u[2] - n[2]*u[1];
+    const vy = n[2]*u[0] - n[0]*u[2];
+    const vz = n[0]*u[1] - n[1]*u[0];
+    const v = [vx,vy,vz];
+
+    const pts = [Pab,Pba,Pbc,Pcb,Pca,Pac];
+    const withAng = pts.map(p=>{
+      const ang = Math.atan2( p[0]*v[0]+p[1]*v[1]+p[2]*v[2], p[0]*u[0]+p[1]*u[1]+p[2]*u[2] );
+      return {p, ang};
+    }).sort((a,b)=>a.ang-b.ang);
+
+    hexagons.push(withAng.map(o=>o.p));
+  });
+
+  return { pentagons, hexagons };
+}
+
+/* ============================= 面平面ベースの描画（投影） ============================= */
+// 面法線（Newell風）
+function faceNormalOfPolygon(poly3D){
+  let nx=0, ny=0, nz=0;
+  const n = poly3D.length;
+  for(let i=0;i<n;i++){
+    const a = poly3D[i];
+    const b = poly3D[(i+1)%n];
+    nx += a[1]*b[2]-a[2]*b[1];
+    ny += a[2]*b[0]-a[0]*b[2];
+    nz += a[0]*b[1]-a[1]*b[0];
+  }
+  const inv = 1/Math.hypot(nx,ny,nz);
+  return [nx*inv, ny*inv, nz*inv];
+}
+
+// nに直交する基底(u,v)
+function basisUVfromNormal(n){
+  const t = Math.abs(n[0])<0.9 ? [1,0,0] : [0,1,0];
+  let ux = t[1]*n[2]-t[2]*n[1];
+  let uy = t[2]*n[0]-t[0]*n[2];
+  let uz = t[0]*n[1]-t[1]*n[0];
+  const invu = 1/Math.hypot(ux,uy,uz);
+  const u=[ux*invu, uy*invu, uz*invu];
+  const vx = n[1]*u[2]-n[2]*u[1];
+  const vy = n[2]*u[0]-n[0]*u[2];
+  const vz = n[0]*u[1]-n[1]*u[0];
+  const v=[vx,vy,vz];
+  return {u,v};
+}
+
+// 3D頂点列を(u,v)平面へ正射影
+function projectPolyToPlane2D(poly3D, u, v){
+  return poly3D.map(p=> [ p[0]*u[0]+p[1]*u[1]+p[2]*u[2],
+                           p[0]*v[0]+p[1]*v[1]+p[2]*v[2] ]);
+}
+
+// 2DポリゴンAABB
+function bounds2D(poly2D){
+  let minx=+Infinity,miny=+Infinity,maxx=-Infinity,maxy=-Infinity;
+  for(const [x,y] of poly2D){
+    if(x<minx) minx=x; if(x>maxx) maxx=x;
+    if(y<miny) miny=y; if(y>maxy) maxy=y;
+  }
+  return {minx, miny, maxx, maxy};
+}
+
+// 凸多角形内判定（CCW想定）
+function pointInConvexPoly(px,py, poly){
+  const n=poly.length;
+  let sign=0;
+  for(let i=0;i<n;i++){
+    const [ax,ay]=poly[i], [bx,by]=poly[(i+1)%n];
+    const cross = (bx-ax)*(py-ay) - (by-ay)*(px-ax);
+    if (cross!==0){
+      const s = cross>0? 1:-1;
+      if(sign===0) sign=s;
+      else if(s!==sign) return false;
+    }
+  }
+  return true;
+}
+
+// 2D三角形：内/外＋バリセン
+function pointInTri2D(px,py, ax,ay, bx,by, cx,cy, eps=-1e-6){
+  const v0x=bx-ax, v0y=by-ay;
+  const v1x=cx-ax, v1y=cy-ay;
+  const v2x=px-ax, v2y=py-ay;
+  const den = v0x*v1y - v0y*v1x;
+  if (Math.abs(den) < 1e-12) return null;
+  const v = (v2x*v1y - v2y*v1x)/den;
+  const w = (v0x*v2y - v0y*v2x)/den;
+  const u = 1 - v - w;
+  if (u>=eps && v>=eps && w>=eps) return {u,v,w};
+  return null;
+}
+
+// 2D多角形の符号付き面積（CCWなら正）
+function signedArea2D(poly){
+  let a=0;
+  for(let i=0;i<poly.length;i++){
+    const [x1,y1]=poly[i], [x2,y2]=poly[(i+1)%poly.length];
+    a += x1*y2 - x2*y1;
+  }
+  return 0.5*a;
+}
+
+// 面平面へ張って描画（頂点0起点の三角ファン）（targetEdgePx があれば辺長を優先）
+function renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize, targetEdgePx=null){
+  // 1) 法線と基底
+  const n = faceNormalOfPolygon(poly3D);
+  const {u,v} = basisUVfromNormal(n);
+
+  // 2) 3D→2D（生の面内座標）
+  let poly2D = projectPolyToPlane2D(poly3D, u, v);
+
+  // CCW保証
+  if (signedArea2D(poly2D) < 0){
+    poly2D.reverse();
+    poly3D = [...poly3D].reverse();
+  }
+
+  // 3) スケールを決める
+  const rawBounds = bounds2D(poly2D);
+  const rawW = rawBounds.maxx - rawBounds.minx;
+  const rawH = rawBounds.maxy - rawBounds.miny;
+  const fitScale = 0.9 * Math.min(faceSize/rawW, faceSize/rawH); // 従来の「枠にフィット」
+
+  let scale = fitScale;
+  if (targetEdgePx != null){
+    // “辺長優先”スケール： rawの平均辺長を targetEdgePx に合わせる
+    const rawEdge = avgEdgeLen2D(poly2D);
+    const edgeScale = targetEdgePx / rawEdge;
+    // ただしキャンバスをはみ出す場合はフィット上限で抑える
+    scale = Math.min(edgeScale, fitScale);
+  }
+
+  // 4) スケール＆センタリング
+  const cx = (rawBounds.minx + rawBounds.maxx)/2;
+  const cy = (rawBounds.miny + rawBounds.maxy)/2;
+  const P2 = poly2D.map(([x,y])=> [ (x-cx)*scale + faceSize/2, (y-cy)*scale + faceSize/2 ]);
+
+  // 5) 描画（従来同様）
+  const canvas = document.createElement('canvas');
+  canvas.width = faceSize; canvas.height = faceSize;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(faceSize, faceSize);
+  const data = img.data;
+
+  const xs = P2.map(p=>p[0]), ys = P2.map(p=>p[1]);
+  const bbx0 = Math.max(0, Math.floor(Math.min(...xs)));
+  const bbx1 = Math.min(faceSize-1, Math.ceil (Math.max(...xs)));
+  const bby0 = Math.max(0, Math.floor(Math.min(...ys)));
+  const bby1 = Math.min(faceSize-1, Math.ceil (Math.max(...ys)));
+
+  for(let py=bby0; py<=bby1; py++){
+    for(let px=bbx0; px<=bbx1; px++){
+      if(!pointInConvexPoly(px+0.5, py+0.5, P2)) continue;
+
+      let color = null;
+      for(let i=1;i<P2.length-1;i++){
+        const A=P2[0], B=P2[i], C=P2[i+1];
+        const bc = pointInTri2D(px+0.5, py+0.5, A[0],A[1], B[0],B[1], C[0],C[1]);
+        if(!bc) continue;
+
+        const A3 = poly3D[0], B3 = poly3D[i], C3 = poly3D[i+1];
+        let X = bc.u*A3[0] + bc.v*B3[0] + bc.w*C3[0];
+        let Y = bc.u*A3[1] + bc.v*B3[1] + bc.w*C3[1];
+        let Z = bc.u*A3[2] + bc.v*B3[2] + bc.w*C3[2];
+        const inv = 1/Math.hypot(X,Y,Z);
+        const dx = X*inv, dy = Y*inv, dz = Z*inv;
+
+        const {lat,lon} = dirToLonLat(dx,dy,dz);
+        const ex = ((lon + Math.PI) / (2*Math.PI)) * ew;
+        const ey = ((Math.PI/2 - lat) / Math.PI) * eh;
+        color = bilinearInterpolateEquirect(eData, ex, ey, ew, eh);
+        break;
+      }
+      if(color){
+        const idx = (py*faceSize + px)*4;
+        data[idx  ] = color[0];
+        data[idx+1] = color[1];
+        data[idx+2] = color[2];
+        data[idx+3] = color[3];
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return canvas;
+}
+
+
+/* ============================= 正六面体（キューブマップ） ============================= */
+// キューブの各面における (u,v)∈[-1,1]×[-1,1] → 方向ベクトル dir を返す
+// 右手系で y=上, x=右, z=前(+Z) を想定（equirectは atan2(x,z) を使用）
+function cubeUVToDir(face, u, v){
+  // vは画像座標から上が正になるように変換済みを渡す前提
+  // 慣用のひとつの取り回し：PX/NX/PY/NY/PZ/NZ
+  switch(face){
+    case 'px': return normalize([ 1,  v, -u ]);
+    case 'nx': return normalize([-1,  v,  u ]);
+    case 'py': return normalize([ u,  1,  v ]);
+    case 'ny': return normalize([ u, -1, -v ]);
+    case 'pz': return normalize([ u,  v,  1 ]);
+    case 'nz': return normalize([-u,  v, -1 ]);
+  }
+  function normalize([x,y,z]){
+    const inv = 1/Math.hypot(x,y,z);
+    return [x*inv,y*inv,z*inv];
+  }
+}
+
+function renderCubeFace(eData, ew, eh, faceName, faceSize){
+  const canvas = document.createElement('canvas');
+  canvas.width = faceSize; canvas.height = faceSize;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(faceSize, faceSize);
+  const data = img.data;
+
+  for(let py=0; py<faceSize; py++){
+    // 画像座標→v（上＋）: v = 1 - 2*(y+0.5)/N
+    const v = 1 - 2*((py + 0.5)/faceSize);
+    for(let px=0; px<faceSize; px++){
+      // 画像座標→u（右＋）
+      const u = 2*((px + 0.5)/faceSize) - 1;
+
+      const [dx,dy,dz] = cubeUVToDir(faceName, u, v);
+      const {lat, lon} = dirToLonLat(dx,dy,dz);
+      const ex = ((lon + Math.PI) / (2*Math.PI)) * ew;
+      const ey = ((Math.PI/2 - lat) / Math.PI) * eh;
+      const c = bilinearInterpolateEquirect(eData, ex, ey, ew, eh);
+
+      const idx = (py*faceSize + px)*4;
+      data[idx  ] = c[0];
+      data[idx+1] = c[1];
+      data[idx+2] = c[2];
+      data[idx+3] = c[3];
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return canvas;
+}
+
+function convertEquirectToCube(equirectImage, faceSize){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const eData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const order = ['px','nx','py','ny','pz','nz'];
+  const names = {
+    px:'px(+X)', nx:'nx(-X)', py:'py(+Y)', ny:'ny(-Y)', pz:'pz(+Z)', nz:'nz(-Z)'
+  };
+  const faces = [];
+  order.forEach(f=>{
+
+
+// 20250906+ for Cube展開に特定に二面のみ左右反転して90度cw, ucwする
+let canvas = renderCubeFace(eData, ew, eh, f, faceSize);
+
+// ★紙の展開図向けの面向き調整：
+//  - ny(-Y) は「左右反転 → 時計回り90°」
+//  - py(+Y) は「左右反転 → 反時計回り90°」
+if (f === 'ny'){
+  canvas = flipHThenRotate90(canvas, 'cw');
+} else if (f === 'py'){
+  canvas = flipHThenRotate90(canvas, 'ccw');
+}
+
+    
+    faces.push({name: names[f], canvas});
+  });
+  return faces;
+}
+
+/* ============================= 変換エントリ（切頂二十面体） ============================= */
+function convertEquirectToTruncatedIcosahedron(equirectImage, faceSize, t=1/3){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const eData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const {pentagons, hexagons} = truncatedIcosahedronData(t);
+
+  // ---- 六角形の基準辺長（px）を決める ----
+  // 代表として hexagons[0] を面内投影して、"フィット描画"での平均辺長を求める
+  (function ensureHexExists(){
+    if(!hexagons.length) throw new Error('hexagons not found');
+  })();
+
+  // 投影だけして fitScale * rawEdge を計算（描画はしない）
+  function projectedAvgEdgeLenIfFitted(poly3D){
+    const n = faceNormalOfPolygon(poly3D);
+    const {u,v} = basisUVfromNormal(n);
+    const raw2 = projectPolyToPlane2D(poly3D, u, v);
+    if (signedArea2D(raw2) < 0) raw2.reverse();
+    const {minx,miny,maxx,maxy} = bounds2D(raw2);
+    const rawW = maxx-minx, rawH = maxy-miny;
+    const fitScale = 0.9 * Math.min(faceSize/rawW, faceSize/rawH);
+    return avgEdgeLen2D(raw2) * fitScale;
+  }
+  const hexEdgePx = projectedAvgEdgeLenIfFitted(hexagons[0]);
+
+  // ---- 描画：六角形（基準どおり＝フィット）／五角形（辺長合わせ） ----
+  const faces = [];
+
+  // 五角形（辺長を hexEdgePx に合わせる＝必要なら縮小）
+  pentagons.forEach((poly, i)=>{
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ hexEdgePx);
+    faces.push({name:`pent_${String(i).padStart(2,'0')}`, kind:'P', canvas, poly3:poly});
+  });
+
+  // 六角形（従来どおりフィット。※必要なら同じ target を渡してもOK）
+  hexagons.forEach((poly, i)=>{
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ null);
+    faces.push({name:`hex_${String(i).padStart(2,'0')}`, kind:'H', canvas, poly3:poly});
+  });
+
+  return faces;
+}
+
+
+/* ============================= UI ロジック ============================= */
+const el = {
+  uploadArea: document.getElementById('uploadArea'),
+  fileInput: document.getElementById('fileInput'),
+  inputInfo: document.getElementById('inputInfo'),
+  polyType: document.getElementById('polyType'),
+  faceSize: document.getElementById('faceSize'),
+  truncRow: document.getElementById('truncRow'),
+  truncRange: document.getElementById('truncRange'),
+  truncNumber: document.getElementById('truncNumber'),
+  runBtn: document.getElementById('runBtn'),
+  clearBtn: document.getElementById('clearBtn'),
+  fmt: document.getElementById('fmt'),
+  qualityRange: document.getElementById('qualityRange'),
+  qualityLabel: document.getElementById('qualityLabel'),
+  prefix: document.getElementById('prefix'),
+  faces: document.getElementById('faces'),
+  dlAllBtn: document.getElementById('dlAllBtn'),
+  gridBtn: document.getElementById('gridBtn'),
+  gridCanvas: document.getElementById('gridCanvas'),
+  gridWrap: document.getElementById('gridWrap'),
+  gridDownload: document.getElementById('gridDownload'),
+  gridInfo: document.getElementById('gridInfo'),
+  
+    drawGuideBtn: document.getElementById('drawGuideBtn'),
+    guideColor: document.getElementById('guideColor'),
+    guideWidth: document.getElementById('guideWidth'),
+  
+};
+
+let inputImage = null;
+let originalImage = null; // 常に生のオリジナルを保持
+
+let lastFaces = []; // {name, canvas}[]
+let lastPoly = '';  // 'cube' | 'icosa' | 'truncated'
+
+function loadImage(file){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function setInputInfo(img){
+  if(!img) { el.inputInfo.textContent = '未読み込み'; return; }
+  el.inputInfo.textContent = `入力：${img.width} × ${img.height} px（エクイ想定）`;
+}
+
+function renderFacesToPanel(faces){
+  el.faces.innerHTML = '';
+  faces.forEach(({name, canvas})=>{
+    const box = document.createElement('div');
+    box.className = 'face';
+    const p = document.createElement('p'); p.textContent = name;
+    const save = document.createElement('button');
+    save.className = 'btn ghost'; save.textContent = '保存';
+    save.onclick = ()=>{
+      const mime = el.fmt.value;
+      const quality = parseFloat(el.qualityRange.value);
+      const url = (mime==='image/png') ? canvas.toDataURL(mime)
+                                       : canvas.toDataURL(mime, quality);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${el.prefix.value}${name}.${extFromMime(mime)}`;
+      a.click();
+    };
+    box.appendChild(p);
+    box.appendChild(canvas);
+    box.appendChild(save);
+    el.faces.appendChild(box);
+  });
+}
+
+function extFromMime(mime){
+  if(mime==='image/png') return 'png';
+  if(mime==='image/jpeg') return 'jpg';
+  if(mime==='image/webp') return 'webp';
+  return 'png';
+}
+
+// 追加：Canvas→Blob 変換（await対応）
+async function canvasToBlob(canvas, mime, quality){
+  return await new Promise(resolve => canvas.toBlob(resolve, mime, quality));
+}
+
+// 追加：ZIP化して1回のダウンロードで保存
+async function zipAndDownload(fileEntries, zipBaseName){
+  const zip = new JSZip();
+  for (const { path, blob } of fileEntries){
+    zip.file(path, blob);
+  }
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${zipBaseName}.zip`;
+  a.click();
+  // 一定時間後にURL解放
+  setTimeout(()=> URL.revokeObjectURL(url), 10000);
+}
+
+function buildGridAndPreview(faces){
+  if(!faces.length) return;
+  const N = faces.length;
+  const cols = Math.ceil(Math.sqrt(N));
+  const rows = Math.ceil(N / cols);
+
+  const w = faces[0].canvas.width;
+  const h = faces[0].canvas.height;
+
+  const g = el.gridCanvas;
+  g.width = cols * w;
+  g.height = rows * h;
+
+  const ctx = g.getContext('2d');
+  ctx.clearRect(0,0,g.width,g.height);
+
+  faces.forEach(({canvas}, i)=>{
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    ctx.drawImage(canvas, c*w, r*h);
+  });
+
+  el.gridWrap.style.display = 'block';
+  el.gridInfo.textContent = `タイル：${g.width} × ${g.height} px（${cols}×${rows}面）`;
+
+    el.gridDownload.style.display = 'inline-block';
+    el.gridDownload.textContent = 'タイルを保存';
+    el.gridDownload.removeAttribute('onclick');
+    
+    el.gridDownload.onclick = async () => {
+        const mime = el.fmt.value;
+        const quality = parseFloat(el.qualityRange.value);
+        const ext = extFromMime(mime);
+        const prefix = el.prefix.value || '';
+        const blob = await canvasToBlob(g, mime, quality);
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${prefix}${lastPoly}_grid.${ext}`;
+        a.click();
+        
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    };
+}
+
+// 単位ベクトル間のSLERP（線形→正規化の近似でもOKだが、ここは滑らかさ重視）
+function slerpUnit(A,B,t){
+  // 内積で角度
+  const dot = Math.max(-1, Math.min(1, A[0]*B[0] + A[1]*B[1] + A[2]*B[2]));
+  const omega = Math.acos(dot);
+  if (omega < 1e-6){
+    return [A[0],A[1],A[2]];
+  }
+  const s1 = Math.sin((1-t)*omega)/Math.sin(omega);
+  const s2 = Math.sin(t*omega)/Math.sin(omega);
+  const x = s1*A[0] + s2*B[0];
+  const y = s1*A[1] + s2*B[1];
+  const z = s1*A[2] + s2*B[2];
+  const inv = 1/Math.hypot(x,y,z);
+  return [x*inv, y*inv, z*inv];
+}
+
+// 辺リスト（各辺は [A,B]：単位ベクトル）を多面体タイプから収集
+function gatherEdges(polyType, t=1/3){
+  const edges = [];
+  const addEdge = (a,b)=>{
+    // 方向に依らない一意化
+    const key = a.map(v=>v.toFixed(6)).join(',') + '|' + b.map(v=>v.toFixed(6)).join(',');
+    const keyR = b.map(v=>v.toFixed(6)).join(',') + '|' + a.map(v=>v.toFixed(6)).join(',');
+    if (!addEdge._set) addEdge._set = new Set();
+    if (addEdge._set.has(key) || addEdge._set.has(keyR)) return;
+    addEdge._set.add(key); edges.push([a,b]);
+  };
+
+  if (polyType === 'icosa'){
+    const {V,F} = icosahedronData();
+    const ek = (i,j)=> i<j ? `${i}_${j}` : `${j}_${i}`;
+    const seen = new Set();
+    F.forEach(f=>{
+      for(let k=0;k<3;k++){
+        const a=f[k], b=f[(k+1)%3];
+        const key = ek(a,b);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addEdge(V[a], V[b]);
+      }
+    });
+  } else if (polyType === 'cube'){
+    // 立方体の8頂点（正規化不要：±1）
+    const V = [];
+    [-1,1].forEach(x=>[-1,1].forEach(y=>[-1,1].forEach(z=>{
+      const inv = 1/Math.hypot(x,y,z);
+      V.push([x*inv,y*inv,z*inv]);
+    })));
+    // エッジ（座標が1軸だけ異なる組み合わせ）
+    const idx = (sx,sy,sz)=> (sx+1)/2*4 + (sy+1)/2*2 + (sz+1)/2;
+    const signs=[-1,1];
+    signs.forEach(x=>{
+      signs.forEach(y=>{
+        addEdge(V[idx(x,y,-1)], V[idx(x,y, 1)]);
+      });
+    });
+    signs.forEach(x=>{
+      signs.forEach(z=>{
+        addEdge(V[idx(x,-1,z)], V[idx(x, 1,z)]);
+      });
+    });
+    signs.forEach(y=>{
+      signs.forEach(z=>{
+        addEdge(V[idx(-1,y,z)], V[idx( 1,y,z)]);
+      });
+    });
+  } else {
+    // 切頂二十面体：五角形/六角形ポリゴンから連続辺
+    const {pentagons, hexagons} = truncatedIcosahedronData(t);
+    const polyEdges = (poly)=> poly.forEach((p,i)=>{
+      const q = poly[(i+1)%poly.length];
+      addEdge(p,q);
+    });
+    pentagons.forEach(polyEdges);
+    hexagons.forEach(polyEdges);
+  }
+  return edges;
+}
+
+// 辺をエクイレクタングラー(元画像)へ描画して保存
+async function drawGuideOnEquirectAndSave(img, polyType, opts){
+  const {color='#ff2d55', width=2, t=1/3, samples=256, mime='image/png', quality=0.92, prefix='poly_'} = opts||{};
+  const ew = img.width, eh = img.height;
+
+  const cv = document.createElement('canvas');
+  cv.width = ew; cv.height = eh;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+
+  ctx.lineWidth = width;
+  ctx.strokeStyle = color;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  const edges = gatherEdges(polyType, t);
+
+  edges.forEach(([A,B])=>{
+    // サンプル列
+    const pts = [];
+    for(let i=0;i<=samples;i++){
+      const tt = i/samples;
+      const [x,y,z] = slerpUnit(A,B,tt);
+      const {lat,lon} = dirToLonLat(x,y,z);
+      const ex = ((lon + Math.PI) / (2*Math.PI)) * ew;
+      const ey = ((Math.PI/2 - lat) / Math.PI) * eh;
+      pts.push([ex,ey]);
+    }
+    // 経度またぎ（±π）の折れを分割して描く
+    let seg = [pts[0]];
+    for(let i=1;i<pts.length;i++){
+      const [x0,_y0]=seg[seg.length-1];
+      const [x1,_y1]=pts[i];
+      if (Math.abs(x1 - x0) > ew*0.5){
+        // スプリット
+        ctx.beginPath();
+        ctx.moveTo(seg[0][0], seg[0][1]);
+        for(let k=1;k<seg.length;k++) ctx.lineTo(seg[k][0], seg[k][1]);
+        ctx.stroke();
+        seg = [pts[i]];
+      }else{
+        seg.push(pts[i]);
+      }
+    }
+    if (seg.length>1){
+      ctx.beginPath();
+      ctx.moveTo(seg[0][0], seg[0][1]);
+      for(let k=1;k<seg.length;k++) ctx.lineTo(seg[k][0], seg[k][1]);
+      ctx.stroke();
+    }
+  });
+
+  // ダウンロード
+  const blob = await new Promise(res=> cv.toBlob(res, mime, quality));
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const polyTag = (polyType==='cube'?'cube': polyType==='icosa'?'icosa':'truncated');
+  a.download = `${prefix}${polyTag}_guide.${extFromMime(mime)}`;
+  a.href = url; a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 10000);
+}
+
+
+
+
+/* --------- イベントバインド --------- */
+
+
+
+// ボタンイベント（他のイベント群の近くに追記）
+document.getElementById('drawGuideBtn').addEventListener('click', async ()=>{
+  if(!inputImage){ alert('先にエクイレク画像を読み込んでください。'); return; }
+  const type = el.polyType.value; // 'cube' | 'icosa' | 'truncated'
+  const t = Math.max(0.15, Math.min(0.5, parseFloat(el.truncNumber?.value||'0.333'))); // 切頂用
+  const mime = el.fmt.value;
+  const quality = parseFloat(el.qualityRange.value);
+  const prefix = el.prefix.value || '';
+  const color = document.getElementById('guideColor').value;
+  const width = Math.max(1, Math.min(8, parseInt(document.getElementById('guideWidth').value||'2',10)));
+  await drawGuideOnEquirectAndSave(inputImage, type, {color, width, t, mime, quality, prefix});
+});
+
+
+
+
+el.uploadArea.addEventListener('dragover', e=>{
+  e.preventDefault(); el.uploadArea.classList.add('dragover');
+});
+el.uploadArea.addEventListener('dragleave', e=>{
+  el.uploadArea.classList.remove('dragover');
+});
+el.uploadArea.addEventListener('drop', async e=>{
+  e.preventDefault(); el.uploadArea.classList.remove('dragover');
+  const file = e.dataTransfer.files?.[0];
+  if(!file) return;
+  
+ originalImage = await loadImage(file);// 20250906+ for 多重面体の逆転処理
+ inputImage = originalImage;         // 既定は常にオリジナル
+ setInputInfo(originalImage);
+  
+});
+el.fileInput.addEventListener('change', async e=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+ // 20250906+ for 多重面体の逆転処理
+    // ここで originalImage も必ず更新し、inputImage を揃える
+    originalImage = await loadImage(file);
+    inputImage = originalImage;
+setInputInfo(originalImage);
+});
+
+el.polyType.addEventListener('change', ()=>{
+  const trunc = el.polyType.value === 'truncated';
+  el.truncRow.style.display = trunc ? 'block' : 'none';
+});
+
+el.truncRange.addEventListener('input', ()=>{
+  el.truncNumber.value = el.truncRange.value;
+});
+el.truncNumber.addEventListener('input', ()=>{
+  el.truncRange.value = el.truncNumber.value;
+});
+
+el.qualityRange.addEventListener('input', ()=>{
+  el.qualityLabel.textContent = Number(el.qualityRange.value).toFixed(2);
+});
+
+el.runBtn.addEventListener('click', ()=>{
+if(!originalImage){ alert('先にエクイレク画像を読み込んでください。'); return; }
+  const faceSize = Math.max(32, Math.min(4096, parseInt(el.faceSize.value || '512',10)));
+  const type = el.polyType.value;
+
+
+// ★要件通りの置換ロジック： 20250906+ for 多重面体の逆転処理
+//   cube       : 置き換えず（常にオリジナルを使用）
+//   icosa/truncated : 実行時にオリジナルを左右反転したキャンバスで inputImage を置換してから続行
+if (type === 'cube'){
+  inputImage = originalImage; // オリジナルのまま
+} else if (type === 'icosa' || type === 'truncated'){
+  inputImage = createHorizontallyFlippedCanvas(originalImage);
+}
+
+
+
+
+  let faces = [];
+  if(type === 'cube'){
+    faces = convertEquirectToCube(inputImage, faceSize);
+  }else if(type === 'icosa'){
+    faces = convertEquirectToIcosahedron(inputImage, faceSize);
+  }else{
+    const t = Math.max(0.15, Math.min(0.5, parseFloat(el.truncNumber.value||'0.333')));
+    faces = convertEquirectToTruncatedIcosahedron(inputImage, faceSize, t);
+  }
+  
+  lastFaces = faces;
+  lastPoly = type;
+  renderFacesToPanel(faces);
+  el.gridWrap.style.display = 'none';
+  el.gridDownload.style.display = 'none';
+  el.gridInfo.textContent = '';
+});
+
+el.clearBtn.addEventListener('click', ()=>{
+  lastFaces = [];
+  el.faces.innerHTML = '';
+  el.gridWrap.style.display = 'none';
+  el.gridDownload.style.display = 'none';
+  el.gridInfo.textContent = '';
+});
+
+
+// ZIPでまとめて保存する仕様
+el.dlAllBtn.addEventListener('click', async ()=>{
+  if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
+
+  const mime = el.fmt.value;
+  const quality = parseFloat(el.qualityRange.value);
+  const ext = extFromMime(mime);
+  const prefix = el.prefix.value || '';
+
+  // 個別面をZIPへ詰める
+  const files = [];
+  for (const { name, canvas } of lastFaces){
+    const blob = await canvasToBlob(canvas, mime, quality);
+    files.push({ path: `${prefix}${name}.${ext}`, blob });
+  }
+
+  // もしタイルがプレビュー済みなら、タイルも同梱
+  if (el.gridWrap.style.display === 'block'){
+    const gBlob = await canvasToBlob(el.gridCanvas, mime, quality);
+    files.push({ path: `${prefix}${lastPoly}_grid.${ext}`, blob: gBlob });
+  }
+
+  await zipAndDownload(files, `${prefix}${lastPoly}_all`);
+});
+
+
+
+
+
+el.gridBtn.addEventListener('click', ()=>{
+  if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
+  buildGridAndPreview(lastFaces);
+});
+</script>
+</body>
+</html>
