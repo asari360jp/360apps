@@ -129,6 +129,7 @@
         <div style="flex:1; min-width:220px;">
           <label>多面体の種類</label>
           <select id="polyType">
+	    <option value="tetrahedron">正四面体（4三角）</option>
             <option value="cube">正六面体（6正方）</option>
             <option value="icosa">正二十面体（20三角）</option>
             <option value="truncated">切頂二十面体（12五角+20六角）</option>
@@ -332,6 +333,34 @@ function icosahedronData(){
     [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
   ];
   return {V,F};
+}
+
+/* ============================= 正四面体 ============================= */
+function tetrahedronData(){
+  // 正四面体の4頂点
+  // 立方体の頂点を利用した標準的な配置
+  const vertices = [
+    [ 1,  1,  1],
+    [ 1, -1, -1],
+    [-1,  1, -1],
+    [-1, -1,  1]
+  ];
+  
+  // 正規化
+  const V = vertices.map(([x,y,z])=>{
+    const inv = 1/Math.hypot(x,y,z);
+    return [x*inv, y*inv, z*inv];
+  });
+  
+  // 4つの三角形面（外向き法線を考慮した頂点順序）
+  const F = [
+    [0, 2, 1],  // 面0
+    [0, 3, 2],  // 面1
+    [0, 1, 3],  // 面2
+    [1, 2, 3]   // 面3
+  ];
+  
+  return {V, F};
 }
 
 /* ============================= 斜方立方八面体 ============================= */
@@ -888,6 +917,28 @@ function convertEquirectToRhombicuboctahedron(equirectImage, faceSize){
   return faces;
 }
 
+/* ============================= 変換エントリ（正四面体） ============================= */
+function convertEquirectToTetrahedron(equirectImage, faceSize){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const eData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const {V, F} = tetrahedronData();
+  const faces = [];
+
+  // 4つの三角形面
+  F.forEach((tri, i)=>{
+    const poly3D = tri.map(idx => V[idx]);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
+    faces.push({name:`tri_${String(i).padStart(2,'0')}`, canvas});
+  });
+
+  return faces;
+}
+
 /* ============================= UI ロジック ============================= */
 const el = {
   uploadArea: document.getElementById('uploadArea'),
@@ -1066,7 +1117,20 @@ function gatherEdges(polyType, t=1/3){
     addEdge._set.add(key); edges.push([a,b]);
   };
 
-  if (polyType === 'icosa'){
+  if (polyType === 'tetrahedron'){
+    const {V,F} = tetrahedronData();
+    const ek = (i,j)=> i<j ? `${i}_${j}` : `${j}_${i}`;
+    const seen = new Set();
+    F.forEach(f=>{
+      for(let k=0;k<3;k++){
+        const a=f[k], b=f[(k+1)%3];
+        const key = ek(a,b);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addEdge(V[a], V[b]);
+      }
+    });
+  } else if (polyType === 'icosa'){
     const {V,F} = icosahedronData();
     const ek = (i,j)=> i<j ? `${i}_${j}` : `${j}_${i}`;
     const seen = new Set();
@@ -1281,6 +1345,8 @@ if (type === 'cube'){
   let faces = [];
   if(type === 'cube'){
     faces = convertEquirectToCube(inputImage, faceSize);
+  }else if(type === 'tetrahedron'){
+    faces = convertEquirectToTetrahedron(inputImage, faceSize);
   }else if(type === 'icosa'){
     faces = convertEquirectToIcosahedron(inputImage, faceSize);
   }else if(type === 'rhombicubocta'){
