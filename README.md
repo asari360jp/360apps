@@ -4,7 +4,9 @@
 ブラウザ上で完結し、画像をアップロードするだけで簡単に利用できます。
 
 ## Included Apps
-- **equi2poly3.html** - エクイレクタングラー → 多面体変換 [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/equi2poly3.html)
+**equi2poly3.html** - エクイレクタングラー → 多面体変換
+- [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/equi2poly3.html)
+- [いけだじゅんじ さん](https://github.com/ikejun360go/360onWeb/) のソースコードをベースとして作成
 
 > A browser-based web apps for 360 equirectangular images.  
 > No installation required - simply upload and use directly in your browser.
