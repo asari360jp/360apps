@@ -4,8 +4,8 @@
  * 
  * @description 360イメージを編集するWebアプリケーション（エクイレクタングラーを多面体に変換）
  * @author いけだじゅんじ (enhanced by Claude, updated by ChatGPT)
- * @version 1.1
- * @date 20250831
+ * @version 1.3
+ * @date 20250928
  * @license Public Domain - 再配布、改変自由、一切の制限なし
  * @disclaimer 
  *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
@@ -22,7 +22,7 @@
  * v 1.1 正二十面体の各面の形状を修正（）
  * Acknowledgements
  * 正二十面体の各面形状の検証・改善に協力いただいた asari さんに感謝します 🙏
-* CHANGELOG 20250906 
+ * CHANGELOG 20250928 
  *
  * v 1.2 ランタイム反転と上下面の向き調整、展開線描画、ZIP/タイル強化（2025-09-06）
  *  - [変換元の扱い] 変換実行時にだけ処理分岐。正六面体はオリジナルをそのまま使用。
@@ -37,6 +37,7 @@
  *     多面体の全エッジを球面補間でサンプリングし、経度またぎを考慮してequirectに描画・保存。
  *  - [出力強化] 生成面の一括ZIP保存(JSZip)／1枚タイル生成と保存（プレビュー付き）を整備。
  *  - [UI/微修正] 品質ラベルのリアルタイム更新、アラート文言調整、内部関数の整理。
+ * v 1.3 正八面体の追加
  *
  * 既知の注意:
  *  - 大容量画像ではブラウザのメモリ使用量が増えます。保存前プレビューでサイズをご確認ください。
@@ -44,7 +45,7 @@
  *
  * クレジット:
  *  - Code & Design: いけだじゅんじ
- *  - Enhanced with: Claude / ChatGPT（実装提案・バグ修正・最適化）
+ *  - Enhanced with: Claude / ChatGPT / Grok（実装提案・バグ修正・最適化）
  *  - Third-party: JSZip (MIT)
  */
 -->
@@ -109,7 +110,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>360エクイ → 正六面体／正二十面体／カクカク⚽️サッカーボール・切頂二十面体　変換 v1.2 </h1>
+  <h1>360エクイ → 正六面体／正八面体／正二十面体／カクカク⚽️サッカーボール・切頂二十面体　変換 v1.3 </h1>
 
   <div class="row">
     <!-- 入力 -->
@@ -129,8 +130,9 @@
         <div style="flex:1; min-width:220px;">
           <label>多面体の種類</label>
           <select id="polyType">
-	    <option value="tetrahedron">正四面体（4三角）</option>
+	        <option value="tetrahedron">正四面体（4三角）</option>
             <option value="cube">正六面体（6正方）</option>
+            <option value="octa">正八面体（8三角）</option>
             <option value="icosa">正二十面体（20三角）</option>
             <option value="truncated">切頂二十面体（12五角+20六角）</option>
             <option value="rhombicubocta">斜方立方八面体（8三角+18正方）</option>
@@ -314,6 +316,42 @@ function avgEdgeLen2D(poly2){
   return s / poly2.length;
 }
 
+
+/* ============================= 正八面体 ============================= */
+function octahedronData(){
+  // 正八面体の頂点（±1軸方向）
+  const V = [
+    [ 1, 0, 0], [-1, 0, 0],  // ±X
+    [ 0, 1, 0], [ 0,-1, 0],  // ±Y  
+    [ 0, 0, 1], [ 0, 0,-1]   // ±Z
+  ];
+  
+  // 正八面体の8つの三角面
+  const F = [
+    [0,2,4], [0,4,3], [0,3,5], [0,5,2],  // +X頂点を含む4面
+    [1,4,2], [1,3,4], [1,5,3], [1,2,5]   // -X頂点を含む4面
+  ];
+  
+  return {V, F};
+}
+
+function convertEquirectToOctahedron(equirectImage, faceSize){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const equirectData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const {V,F} = octahedronData();
+  const faces = [];
+  F.forEach((tri, i)=>{
+    const A = V[tri[0]], B = V[tri[1]], C = V[tri[2]];
+    const canvas = renderIcosaFace(equirectData, ew, eh, A,B,C, faceSize);
+    faces.push({ name:`oct_${i}`, canvas });
+  });
+  return faces;
+}
 
 /* ============================= 正二十面体 ============================= */
 function icosahedronData(){
@@ -1143,6 +1181,19 @@ function gatherEdges(polyType, t=1/3){
         addEdge(V[a], V[b]);
       }
     });
+  } else if (polyType === 'octa'){
+    const {V,F} = octahedronData();
+    const ek = (i,j)=> i<j ? `${i}_${j}` : `${j}_${i}`;
+    const seen = new Set();
+    F.forEach(f=>{
+      for(let k=0;k<3;k++){
+        const a=f[k], b=f[(k+1)%3];
+        const key = ek(a,b);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addEdge(V[a], V[b]);
+      }
+    });
   } else if (polyType === 'cube'){
     // 立方体の8頂点（正規化不要：±1）
     const V = [];
@@ -1253,7 +1304,7 @@ async function drawGuideOnEquirectAndSave(img, polyType, opts){
   const blob = await new Promise(res=> cv.toBlob(res, mime, quality));
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const polyTag = (polyType==='cube'?'cube': polyType==='icosa'?'icosa':'truncated');
+  const polyTag = (polyType==='cube'?'cube': polyType==='octa'?'octa': polyType==='icosa'?'icosa':'truncated');
   a.download = `${prefix}${polyTag}_guide.${extFromMime(mime)}`;
   a.href = url; a.click();
   setTimeout(()=> URL.revokeObjectURL(url), 10000);
@@ -1335,7 +1386,7 @@ if(!originalImage){ alert('先にエクイレク画像を読み込んでくだ�
 //   icosa/truncated : 実行時にオリジナルを左右反転したキャンバスで inputImage を置換してから続行
 if (type === 'cube'){
   inputImage = originalImage; // オリジナルのまま
-} else if (type === 'icosa' || type === 'truncated'){
+} else if (type === 'octa' || type === 'icosa' || type === 'truncated'){
   inputImage = createHorizontallyFlippedCanvas(originalImage);
 }
 
@@ -1347,6 +1398,8 @@ if (type === 'cube'){
     faces = convertEquirectToCube(inputImage, faceSize);
   }else if(type === 'tetrahedron'){
     faces = convertEquirectToTetrahedron(inputImage, faceSize);
+  }else if(type === 'octa'){
+    faces = convertEquirectToOctahedron(inputImage, faceSize);
   }else if(type === 'icosa'){
     faces = convertEquirectToIcosahedron(inputImage, faceSize);
   }else if(type === 'rhombicubocta'){
