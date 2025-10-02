@@ -41,6 +41,7 @@
  * ver.20250927 斜方立方八面体の追加
  * ver.20250929 正四面体の追加
  * ver.20250930 正八面体の追加 https://github.com/ikejun360go/360onWeb/ より20250927版(ver.1.3)をマージ
+ * ver.20251001 正十二面体の追加
  * ------------------------------------------------------------------------------------------------
  *
  * 既知の注意:
@@ -137,6 +138,7 @@
             <option value="tetrahedron">正四面体（4三角）</option>
             <option value="cube">正六面体（6正方）</option>
             <option value="octa">正八面体（8三角）</option>
+            <option value="dodecahedron">正十二面体（12五角）</option>
             <option value="icosa">正二十面体（20三角）</option>
             <option value="truncated">切頂二十面体（12五角+20六角）</option>
             <option value="rhombicubocta">斜方立方八面体（8三角+18正方）</option>
@@ -400,6 +402,47 @@ function tetrahedronData(){
     [0, 3, 2],  // 面1
     [0, 1, 3],  // 面2
     [1, 2, 3]   // 面3
+  ];
+  
+  return {V, F};
+}
+
+/* ============================= 正十二面体 ============================= */
+function dodecahedronData(){
+  const PHI = (1 + Math.sqrt(5)) / 2;  // 黄金比
+  const INV_PHI = 1 / PHI;              // 1/φ
+  
+  // 正十二面体の20頂点
+  const vertices = [
+    // 立方体の頂点（8個）
+    [ 1,  1,  1], [ 1,  1, -1], [ 1, -1,  1], [ 1, -1, -1],
+    [-1,  1,  1], [-1,  1, -1], [-1, -1,  1], [-1, -1, -1],
+    // 黄金長方形の頂点（12個）
+    [0,  INV_PHI,  PHI], [0,  INV_PHI, -PHI], [0, -INV_PHI,  PHI], [0, -INV_PHI, -PHI],
+    [ INV_PHI,  PHI, 0], [ INV_PHI, -PHI, 0], [-INV_PHI,  PHI, 0], [-INV_PHI, -PHI, 0],
+    [ PHI, 0,  INV_PHI], [ PHI, 0, -INV_PHI], [-PHI, 0,  INV_PHI], [-PHI, 0, -INV_PHI]
+  ];
+  
+  // 正規化
+  const V = vertices.map(([x,y,z])=>{
+    const inv = 1/Math.hypot(x,y,z);
+    return [x*inv, y*inv, z*inv];
+  });
+  
+  // 12個の五角形面（外向き法線を考慮した頂点順序）
+  const F = [
+    [0, 8, 10, 2, 16],    // 面0
+    [0, 12, 14, 4, 8],    // 面1
+    [0, 16, 17, 1, 12],   // 面2
+    [1, 17, 3, 11, 9],    // 面3
+    [1, 9, 5, 14, 12],    // 面4
+    [2, 10, 6, 15, 13],   // 面5
+    [2, 13, 3, 17, 16],   // 面6
+    [3, 13, 15, 7, 11],   // 面7
+    [4, 14, 5, 19, 18],   // 面8
+    [4, 18, 6, 10, 8],    // 面9
+    [5, 9, 11, 7, 19],    // 面10
+    [6, 18, 19, 7, 15]    // 面11
   ];
   
   return {V, F};
@@ -981,6 +1024,28 @@ function convertEquirectToTetrahedron(equirectImage, faceSize){
   return faces;
 }
 
+/* ============================= 変換エントリ（正十二面体） ============================= */
+function convertEquirectToDodecahedron(equirectImage, faceSize){
+  const ew = equirectImage.width, eh = equirectImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = ew; tmp.height = eh;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(equirectImage, 0, 0);
+  const eData = tctx.getImageData(0, 0, ew, eh).data;
+
+  const {V, F} = dodecahedronData();
+  const faces = [];
+
+  // 12個の五角形面
+  F.forEach((pent, i)=>{
+    const poly3D = pent.map(idx => V[idx]);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
+    faces.push({name:`pent_${String(i).padStart(2,'0')}`, canvas});
+  });
+
+  return faces;
+}
+
 /* ============================= UI ロジック ============================= */
 const el = {
   uploadArea: document.getElementById('uploadArea'),
@@ -1166,6 +1231,19 @@ function gatherEdges(polyType, t=1/3){
     F.forEach(f=>{
       for(let k=0;k<3;k++){
         const a=f[k], b=f[(k+1)%3];
+        const key = ek(a,b);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addEdge(V[a], V[b]);
+      }
+    });
+  } else if (polyType === 'dodecahedron'){
+    const {V,F} = dodecahedronData();
+    const ek = (i,j)=> i<j ? `${i}_${j}` : `${j}_${i}`;
+    const seen = new Set();
+    F.forEach(f=>{
+      for(let k=0;k<5;k++){
+        const a=f[k], b=f[(k+1)%5];
         const key = ek(a,b);
         if (seen.has(key)) continue;
         seen.add(key);
@@ -1390,7 +1468,7 @@ if(!originalImage){ alert('先にエクイレク画像を読み込んでくだ�
 //   icosa/truncated : 実行時にオリジナルを左右反転したキャンバスで inputImage を置換してから続行
 if (type === 'cube'){
   inputImage = originalImage; // オリジナルのまま
-} else if (type === 'octa' || type === 'icosa' || type === 'truncated'){
+} else if (type === 'octa' || type === 'icosa' || type === 'dodecahedron' || type === 'truncated'){
   inputImage = createHorizontallyFlippedCanvas(originalImage);
 }
 
@@ -1406,6 +1484,8 @@ if (type === 'cube'){
     faces = convertEquirectToOctahedron(inputImage, faceSize);
   }else if(type === 'icosa'){
     faces = convertEquirectToIcosahedron(inputImage, faceSize);
+  }else if(type === 'dodecahedron'){
+    faces = convertEquirectToDodecahedron(inputImage, faceSize);
   }else if(type === 'rhombicubocta'){
     faces = convertEquirectToRhombicuboctahedron(inputImage, faceSize);
   }else{
