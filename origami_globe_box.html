@@ -2287,9 +2287,14 @@ function generateDoubleLayout(faces){
 //  const margin = Math.ceil(faceSize * 0.5); // 0.5マス分の間隔
   const margin = 0; // マージンなし
   
+  // パターン2の縮小率
+  const scale2 = 0.97;
+  const scaled2Width = result2.width * scale2;
+  const scaled2Height = result2.height * scale2;
+  
   // 結合後のキャンバスサイズ
-  const combinedWidth = Math.max(result1.width, result2.width);
-  const combinedHeight = result1.height + margin + result2.height;
+  const combinedWidth = Math.max(result1.width, scaled2Width);
+  const combinedHeight = result1.height + margin + scaled2Height; // 縮小後の高さを使用
   
   // 結合キャンバスを作成
   const combinedCanvas = document.createElement('canvas');
@@ -2305,10 +2310,16 @@ function generateDoubleLayout(faces){
   const x1 = (combinedWidth - result1.width) / 2;
   ctx.drawImage(result1.canvas, x1, 0);
   
-  // パターン2を下部に配置（中央揃え）
-  const x2 = (combinedWidth - result2.width) / 2;
+  // パターン2を縮小して下部に配置
+//  const x2 = (combinedWidth - scaled2Width) / 2;  // 中央揃え
+  const x2 = 0;  // 左揃え
   const y2 = result1.height + margin;
-  ctx.drawImage(result2.canvas, x2, y2);
+  
+  ctx.drawImage(
+    result2.canvas,
+    0, 0, result2.width, result2.height,  // ソース（元のサイズ）
+    x2, y2, scaled2Width, scaled2Height   // デスティネーション（縮小後のサイズ）
+  );
   
   console.log('2つの展開図を結合完了');
   console.log('パターン1:', result1.width, 'x', result1.height);
