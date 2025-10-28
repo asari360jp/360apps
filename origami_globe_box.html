@@ -136,22 +136,27 @@
         <div style="flex:1; min-width:220px;">
           <label>多面体の種類</label>
           <select id="polyType">
+<!--
             <option value="tetrahedron">正四面体（4三角）</option>
             <option value="cube">正六面体（6正方）</option>
             <option value="octa">正八面体（8三角）</option>
             <option value="dodecahedron">正十二面体（12五角）</option>
             <option value="icosa">正二十面体（20三角）</option>
             <option value="truncated">切頂二十面体（12五角+20六角）</option>
+-->
             <option value="rhombicubocta">斜方立方八面体（8三角+18正方）</option>
           </select>
         </div>
         <div style="flex:1; min-width:220px;">
-          <label>面サイズ（推奨：キューブ=幅/4、二十面/切頂=幅/6〜/8）</label>
+          <label>面サイズ（推奨：幅/6〜/8）</label>
           <input type="number" id="faceSize" min="64" max="4096" step="1" value="512" />
         </div>
       </div>
 
+<!--
       <div id="scaleRow" style="margin-top:10px; display:none;">
+-->
+      <div id="scaleRow" style="margin-top:10px;">
         <label>下半球の縮小率（0.90～1.00 が実用）</label>
         <div class="range-row">
           <input type="range" id="scaleRange" min="0.90" max="1.00" step="0.01" value="0.97" />
@@ -200,10 +205,12 @@
     </div>
 
     <div style="margin-top:12px;">
+<!--
       <button class="btn secondary" id="dlAllBtn">面を一括ZIP保存</button>
       <button class="btn" id="gridBtn">1枚タイルを生成</button>
       <button class="btn" id="layoutBtn">展開図パターン1を作成</button>
       <button class="btn" id="layoutDoubleBtn">展開図パターン1+2を作成</button>
+-->
       <a id="gridDownload" class="btn ghost" style="display:none;">タイル画像を保存</a>
       <a id="layoutDownload" class="btn ghost" style="display:none;">展開図を保存</a>
       <div id="gridInfo" class="mini" style="margin-top:8px; opacity:.85;"></div>
