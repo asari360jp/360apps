@@ -1904,49 +1904,6 @@ function generateLayout(faces){
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   
-  // 正方形を描画
-  layout.squares.forEach(item => {
-    const face = faces.find(f => f.name === item.name);
-    if(!face) return;
-    
-    // この面の描画領域を検出
-    const faceBounds = detectDrawingBounds(face.canvas);
-    
-    // ピクセル座標を計算（隙間なし）
-    const px = item.x * faceSize;
-    const py = item.y * faceSize;
-    
-    // 回転がある場合は回転処理を適用
-    if(item.rotation && item.rotation !== 0){
-      ctx.save(); // 現在の状態を保存
-      
-      // 回転の中心点（配置先の中央）に移動
-      ctx.translate(px + faceSize / 2, py + faceSize / 2);
-      
-      // 回転（度数法→ラジアン）
-      ctx.rotate(item.rotation * Math.PI / 180);
-      
-      // 回転後の描画位置を調整（中心が原点になっているので左上に戻す）
-      ctx.translate(-faceSize / 2, -faceSize / 2);
-      
-      // 描画領域だけを切り出して配置
-      ctx.drawImage(
-        face.canvas,
-        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
-        0, 0, faceBounds.width, faceBounds.height
-      );
-      
-      ctx.restore(); // 状態を復元
-    } else {
-      // 回転なしの場合は従来通り
-      ctx.drawImage(
-        face.canvas,
-        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
-        px, py, faceBounds.width, faceBounds.height
-      );
-    }
-  });
-  
   // 直角二等辺三角形を描画
   layout.triangles.forEach(item => {
     const face = faces.find(f => f.name === item.name);
@@ -2001,7 +1958,8 @@ function generateLayout(faces){
     ctx.rotate(totalRotation * Math.PI / 180);
     
     // 直角二等辺三角形の描画
-    const drawSize = triSize * scale;
+//    const drawSize = triSize * scale;
+    const drawSize = faceSize + 4;	// 正方形サイズ＋マージン(周囲2ピクセル分)
     ctx.drawImage(
       face.canvas,
       faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height, // 元画像の切り出し開始位置とサイズ
@@ -2009,6 +1967,49 @@ function generateLayout(faces){
     );
     
     ctx.restore();
+  });
+  
+  // 正方形を描画
+  layout.squares.forEach(item => {
+    const face = faces.find(f => f.name === item.name);
+    if(!face) return;
+    
+    // この面の描画領域を検出
+    const faceBounds = detectDrawingBounds(face.canvas);
+    
+    // ピクセル座標を計算（隙間なし）
+    const px = item.x * faceSize;
+    const py = item.y * faceSize;
+    
+    // 回転がある場合は回転処理を適用
+    if(item.rotation && item.rotation !== 0){
+      ctx.save(); // 現在の状態を保存
+      
+      // 回転の中心点（配置先の中央）に移動
+      ctx.translate(px + faceSize / 2, py + faceSize / 2);
+      
+      // 回転（度数法→ラジアン）
+      ctx.rotate(item.rotation * Math.PI / 180);
+      
+      // 回転後の描画位置を調整（中心が原点になっているので左上に戻す）
+      ctx.translate(-faceSize / 2, -faceSize / 2);
+      
+      // 描画領域だけを切り出して配置
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        0, 0, faceBounds.width, faceBounds.height
+      );
+      
+      ctx.restore(); // 状態を復元
+    } else {
+      // 回転なしの場合は従来通り
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        px, py, faceBounds.width, faceBounds.height
+      );
+    }
   });
   
   // プレビュー表示
