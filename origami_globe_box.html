@@ -1820,56 +1820,94 @@ function getRhombicuboctaLayout(){
     triangles: []
   };
   
-  // 正方形を5x5の格子状に配置（sq_00 ~ sq_17）
+  // 正方形を7x7の格子状に配置（sq_00 ~ sq_17）
   // 順番は後から自由に変更可能
   layout.squares = [
+    // 0行目
+    { name: 'sq_03', x: 3, y: 0, rotation: 270 },
     // 1行目
-    { name: 'sq_07', x: 1, y: 0, rotation: 270 },
-    { name: 'sq_09', x: 2, y: 0, rotation: 270 },
-    { name: 'sq_06', x: 3, y: 0, rotation: 270 },
+    { name: 'sq_07', x: 2, y: 1, rotation: 270 },
+    { name: 'sq_09', x: 3, y: 1, rotation: 270 },
+    { name: 'sq_06', x: 4, y: 1, rotation: 270 },
     // 2行目
-    { name: 'sq_07', x: 0, y: 1, rotation: 180 },
-    { name: 'sq_02', x: 2, y: 1, rotation: 270 },
-    { name: 'sq_06', x: 4, y: 1, rotation: 0 },
+    { name: 'sq_07', x: 1, y: 2, rotation: 180 },
+    { name: 'sq_02', x: 3, y: 2, rotation: 270 },
+    { name: 'sq_06', x: 5, y: 2, rotation: 0 },
     // 3行目
-    { name: 'sq_15', x: 0, y: 2, rotation: 270 },
-    { name: 'sq_17', x: 1, y: 2, rotation: 270 },
-    { name: 'sq_12', x: 2, y: 2, rotation: 270 },
-    { name: 'sq_16', x: 3, y: 2, rotation: 270 },
-    { name: 'sq_14', x: 4, y: 2, rotation: 90 },
+    { name: 'sq_11', x: 0, y: 3, rotation: 90 },
+    { name: 'sq_15', x: 1, y: 3, rotation: 270 },
+    { name: 'sq_17', x: 2, y: 3, rotation: 270 },
+    { name: 'sq_12', x: 3, y: 3, rotation: 270 },
+    { name: 'sq_16', x: 4, y: 3, rotation: 270 },
+    { name: 'sq_14', x: 5, y: 3, rotation: 90 },
+    { name: 'sq_10', x: 6, y: 3, rotation: 90 },
     // 4行目
-    { name: 'sq_05', x: 0, y: 3, rotation: 0 },
-    { name: 'sq_00', x: 2, y: 3, rotation: 270 },
-    { name: 'sq_04', x: 4, y: 3, rotation: 180 },
+    { name: 'sq_05', x: 1, y: 4, rotation: 0 },
+    { name: 'sq_00', x: 3, y: 4, rotation: 270 },
+    { name: 'sq_04', x: 5, y: 4, rotation: 180 },
     // 5行目
-    { name: 'sq_05', x: 1, y: 4, rotation: 270 },
-    { name: 'sq_08', x: 2, y: 4, rotation: 270 },
-    { name: 'sq_04', x: 3, y: 4, rotation: 270 },
+    { name: 'sq_05', x: 2, y: 5, rotation: 270 },
+    { name: 'sq_08', x: 3, y: 5, rotation: 270 },
+    { name: 'sq_04', x: 4, y: 5, rotation: 270 },
+    // 6行目
+    { name: 'sq_01', x: 3, y: 6, rotation: 270 },
   ];
   
   // 直角二等辺三角形を配置（tri_00_a ~ tri_07_c の24個）
   // position: 'top', 'right', 'bottom', 'left' で正方形1個分の領域内の位置を指定
   layout.triangles = [
-    // 左上（x:1, y:1 の領域に4個配置）
-    { name: 'tri_06_c', x: 1, y: 1, position: 'top', rotation: 0 },
-    { name: 'tri_06_a', x: 1, y: 1, position: 'right', rotation: 0 },
-    { name: 'tri_06_b', x: 1, y: 1, position: 'bottom', rotation: 0 },
-    { name: 'tri_06_c', x: 1, y: 1, position: 'left', rotation: 0 },
-    // 右上（x:3, y:1 の領域に4個配置）
-    { name: 'tri_04_a', x: 3, y: 1, position: 'top', rotation: 0 },
-    { name: 'tri_04_a', x: 3, y: 1, position: 'right', rotation: 0 },
-    { name: 'tri_04_b', x: 3, y: 1, position: 'bottom', rotation: 0 },
-    { name: 'tri_04_c', x: 3, y: 1, position: 'left', rotation: 0 },
-    // 左下（x:1, y:3 の領域に4個配置）
-    { name: 'tri_02_b', x: 1, y: 3, position: 'top', rotation: 0 },
-    { name: 'tri_02_c', x: 1, y: 3, position: 'right', rotation: 0 },
-    { name: 'tri_02_a', x: 1, y: 3, position: 'bottom', rotation: 0 },
-    { name: 'tri_02_a', x: 1, y: 3, position: 'left', rotation: 0 },
-    // 右下（x:3, y:3 の領域に4個配置）
-    { name: 'tri_00_b', x: 3, y: 3, position: 'top', rotation: 0 },
-    { name: 'tri_00_c', x: 3, y: 3, position: 'right', rotation: 0 },
-    { name: 'tri_00_c', x: 3, y: 3, position: 'bottom', rotation: 0 },
-    { name: 'tri_00_a', x: 3, y: 3, position: 'left', rotation: 0 },
+    // x:2, y:0 の領域
+    { name: 'tri_07_c', x: 2, y: 0, position: 'right', rotation: 0 },
+    { name: 'tri_07_a', x: 2, y: 0, position: 'bottom', rotation: 0 },
+    { name: 'tri_07_b', x: 2, y: 0, position: 'left', rotation: 0 },
+    // x:0, y:2 の領域
+    { name: 'tri_07_c', x: 0, y: 2, position: 'top', rotation: 0 },
+    { name: 'tri_07_a', x: 0, y: 2, position: 'right', rotation: 0 },
+    { name: 'tri_07_b', x: 0, y: 2, position: 'bottom', rotation: 0 },
+    // x:4, y:0 の領域
+    { name: 'tri_05_b', x: 4, y: 0, position: 'right', rotation: 0 },
+    { name: 'tri_05_c', x: 4, y: 0, position: 'bottom', rotation: 0 },
+    { name: 'tri_05_a', x: 4, y: 0, position: 'left', rotation: 0 },
+    // x:6, y:2 の領域
+    { name: 'tri_05_b', x: 6, y: 2, position: 'bottom', rotation: 0 },
+    { name: 'tri_05_c', x: 6, y: 2, position: 'left', rotation: 0 },
+    { name: 'tri_05_a', x: 6, y: 2, position: 'top', rotation: 0 },
+    // 左上（x:2, y:2 の領域に4個配置）
+    { name: 'tri_06_c', x: 2, y: 2, position: 'top', rotation: 0 },
+    { name: 'tri_06_a', x: 2, y: 2, position: 'right', rotation: 0 },
+    { name: 'tri_06_b', x: 2, y: 2, position: 'bottom', rotation: 0 },
+    { name: 'tri_06_c', x: 2, y: 2, position: 'left', rotation: 0 },
+    // 右上（x:4, y:2 の領域に4個配置）
+    { name: 'tri_04_a', x: 4, y: 2, position: 'top', rotation: 0 },
+    { name: 'tri_04_a', x: 4, y: 2, position: 'right', rotation: 0 },
+    { name: 'tri_04_b', x: 4, y: 2, position: 'bottom', rotation: 0 },
+    { name: 'tri_04_c', x: 4, y: 2, position: 'left', rotation: 0 },
+    // 左下（x:2, y:4 の領域に4個配置）
+    { name: 'tri_02_b', x: 2, y: 4, position: 'top', rotation: 0 },
+    { name: 'tri_02_c', x: 2, y: 4, position: 'right', rotation: 0 },
+    { name: 'tri_02_a', x: 2, y: 4, position: 'bottom', rotation: 0 },
+    { name: 'tri_02_a', x: 2, y: 4, position: 'left', rotation: 0 },
+    // 右下（x:4, y:4 の領域に4個配置）
+    { name: 'tri_00_b', x: 4, y: 4, position: 'top', rotation: 0 },
+    { name: 'tri_00_c', x: 4, y: 4, position: 'right', rotation: 0 },
+    { name: 'tri_00_c', x: 4, y: 4, position: 'bottom', rotation: 0 },
+    { name: 'tri_00_a', x: 4, y: 4, position: 'left', rotation: 0 },
+    // x:2, y:6 の領域
+    { name: 'tri_03_b', x: 2, y: 6, position: 'left', rotation: 0 },
+    { name: 'tri_03_c', x: 2, y: 6, position: 'top', rotation: 0 },
+    { name: 'tri_03_a', x: 2, y: 6, position: 'right', rotation: 0 },
+    // x:0, y:4 の領域
+    { name: 'tri_03_b', x: 0, y: 4, position: 'top', rotation: 0 },
+    { name: 'tri_03_c', x: 0, y: 4, position: 'right', rotation: 0 },
+    { name: 'tri_03_a', x: 0, y: 4, position: 'bottom', rotation: 0 },
+    // x:4, y:6 の領域
+    { name: 'tri_01_c', x: 4, y: 6, position: 'left', rotation: 0 },
+    { name: 'tri_01_a', x: 4, y: 6, position: 'top', rotation: 0 },
+    { name: 'tri_01_b', x: 4, y: 6, position: 'right', rotation: 0 },
+    // x:6, y:4 の領域
+    { name: 'tri_01_c', x: 6, y: 4, position: 'bottom', rotation: 0 },
+    { name: 'tri_01_a', x: 6, y: 4, position: 'left', rotation: 0 },
+    { name: 'tri_01_b', x: 6, y: 4, position: 'top', rotation: 0 },
   ];
   
   return layout;
@@ -1890,9 +1928,9 @@ function generateLayout(faces){
   const bounds = detectDrawingBounds(squareFace.canvas);
   const faceSize = bounds.width; // 実際の正方形のサイズ
   
-  // キャンバスサイズを計算（5x5、隙間なし）
-  const canvasWidth = faceSize * 5;
-  const canvasHeight = faceSize * 5;
+  // キャンバスサイズを計算（7x7、隙間なし）
+  const canvasWidth = faceSize * 7;
+  const canvasHeight = faceSize * 7;
   
   // キャンバス作成
   const canvas = el.layoutCanvas;
