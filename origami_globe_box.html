@@ -2197,11 +2197,6 @@ function generateSingleLayout(faces, patternNumber){
   ctx.drawImage(tempCanvas, -tempCanvas.width / 2, -tempCanvas.height / 2);
   ctx.restore();
   
-  // 最終キャンバスの外周に境界線を描画
-  ctx.strokeStyle = '#000000'; // 黒色
-  ctx.lineWidth = 2 * 2; // キャンバス内に幅2ピクセルで描画するために、2倍して設定する
-  ctx.strokeRect(0, 0, canvas.width, canvas.height);
-  
   return {
     canvas: canvas,
     width: canvas.width,
@@ -2289,8 +2284,8 @@ function generateDoubleLayout(faces){
   
   // パターン2の縮小率
   const scale2 = 0.97;
-  const scaled2Width = result2.width * scale2;
-  const scaled2Height = result2.height * scale2;
+  const scaled2Width = Math.ceil(result2.width * scale2);    // 切り上げて整数に
+  const scaled2Height = Math.ceil(result2.height * scale2);  // 切り上げて整数に
   
   // 結合後のキャンバスサイズ
   const combinedWidth = Math.max(result1.width, scaled2Width);
@@ -2320,6 +2315,13 @@ function generateDoubleLayout(faces){
     0, 0, result2.width, result2.height,  // ソース（元のサイズ）
     x2, y2, scaled2Width, scaled2Height   // デスティネーション（縮小後のサイズ）
   );
+  
+  // 各パターンの外周に境界線を描画
+  ctx.strokeStyle = '#000000'; // 黒色
+  ctx.lineWidth = 2; // 幅2ピクセル
+  const offset = ctx.lineWidth / 2; // 1ピクセル
+  ctx.strokeRect(x1 + offset, 0 + offset, result1.width - ctx.lineWidth, result1.height - ctx.lineWidth);  // パターン1
+  ctx.strokeRect(x2 + offset, y2 + offset, scaled2Width - ctx.lineWidth, scaled2Height - ctx.lineWidth);   // パターン2
   
   console.log('2つの展開図を結合完了');
   console.log('パターン1:', result1.width, 'x', result1.height);
