@@ -194,8 +194,11 @@
     <div style="margin-top:12px;">
       <button class="btn secondary" id="dlAllBtn">面を一括ZIP保存</button>
       <button class="btn" id="gridBtn">1枚タイルを生成</button>
+      <button class="btn" id="layoutBtn">展開図を作成</button>
       <a id="gridDownload" class="btn ghost" style="display:none;">タイル画像を保存</a>
+      <a id="layoutDownload" class="btn ghost" style="display:none;">展開図を保存</a>
       <div id="gridInfo" class="mini" style="margin-top:8px; opacity:.85;"></div>
+      <div id="layoutInfo" class="mini" style="margin-top:8px; opacity:.85;"></div>
     </div>
     
     <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
@@ -216,6 +219,10 @@
     <div id="gridWrap" style="margin-top:16px; display:none;">
       <p class="mini">タイルプレビュー：</p>
       <canvas id="gridCanvas" class="grid-preview"></canvas>
+    </div>
+    <div id="layoutWrap" style="margin-top:16px; display:none;">
+      <p class="mini">展開図プレビュー：</p>
+      <canvas id="layoutCanvas" class="grid-preview"></canvas>
     </div>
   </div>
 </div>
@@ -1290,6 +1297,11 @@ const el = {
     guideColor: document.getElementById('guideColor'),
     guideWidth: document.getElementById('guideWidth'),
   
+  layoutBtn: document.getElementById('layoutBtn'),
+  layoutDownload: document.getElementById('layoutDownload'),
+  layoutInfo: document.getElementById('layoutInfo'),
+  layoutCanvas: document.getElementById('layoutCanvas'),
+  layoutWrap: document.getElementById('layoutWrap'),
 };
 
 let inputImage = null;
@@ -1759,6 +1771,18 @@ el.gridBtn.addEventListener('click', ()=>{
   if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
   buildGridAndPreview(lastFaces);
 });
+
+el.layoutBtn.addEventListener('click', ()=>{
+  if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
+  if(lastPoly !== 'rhombicubocta'){ 
+    alert('展開図作成は現在、斜方立方八面体のみ対応しています。'); 
+    return; 
+  }
+  
+  // 展開図生成処理（次のステップで実装）
+  generateLayout(lastFaces);
+});
+
 </script>
 </body>
 </html>
