@@ -1847,7 +1847,30 @@ function getRhombicuboctaLayout(){
     { name: 'sq_04', x: 3, y: 4, rotation: 270 },
   ];
   
-  // 三角形はとりあえず空
+  // 直角二等辺三角形を配置（tri_00_a ~ tri_07_c の24個）
+  // position: 'top', 'right', 'bottom', 'left' で正方形1個分の領域内の位置を指定
+  layout.triangles = [
+    // 左上（x:1, y:1 の領域に4個配置）
+    { name: 'tri_06_c', x: 1, y: 1, position: 'top', rotation: 0 },
+    { name: 'tri_06_a', x: 1, y: 1, position: 'right', rotation: 0 },
+    { name: 'tri_06_b', x: 1, y: 1, position: 'bottom', rotation: 0 },
+    { name: 'tri_06_c', x: 1, y: 1, position: 'left', rotation: 0 },
+    // 右上（x:3, y:1 の領域に4個配置）
+    { name: 'tri_04_a', x: 3, y: 1, position: 'top', rotation: 0 },
+    { name: 'tri_04_a', x: 3, y: 1, position: 'right', rotation: 0 },
+    { name: 'tri_04_b', x: 3, y: 1, position: 'bottom', rotation: 0 },
+    { name: 'tri_04_c', x: 3, y: 1, position: 'left', rotation: 0 },
+    // 左下（x:1, y:3 の領域に4個配置）
+    { name: 'tri_02_b', x: 1, y: 3, position: 'top', rotation: 0 },
+    { name: 'tri_02_c', x: 1, y: 3, position: 'right', rotation: 0 },
+    { name: 'tri_02_a', x: 1, y: 3, position: 'bottom', rotation: 0 },
+    { name: 'tri_02_a', x: 1, y: 3, position: 'left', rotation: 0 },
+    // 右下（x:3, y:3 の領域に4個配置）
+    { name: 'tri_00_b', x: 3, y: 3, position: 'top', rotation: 0 },
+    { name: 'tri_00_c', x: 3, y: 3, position: 'right', rotation: 0 },
+    { name: 'tri_00_c', x: 3, y: 3, position: 'bottom', rotation: 0 },
+    { name: 'tri_00_a', x: 3, y: 3, position: 'left', rotation: 0 },
+  ];
   
   return layout;
 }
@@ -1924,9 +1947,74 @@ function generateLayout(faces){
     }
   });
   
+  // 直角二等辺三角形を描画
+  layout.triangles.forEach(item => {
+    const face = faces.find(f => f.name === item.name);
+    if(!face) return;
+    
+    // この面の描画領域を検出
+    const faceBounds = detectDrawingBounds(face.canvas);
+    const triSize = faceBounds.width; // 三角形の元のキャンバスサイズ
+    
+    // 直角二等辺三角形の幾何学的特性：
+    // 斜辺 = faceSize（正方形の1辺）
+    // 元画像内での実際の斜辺の長さを計算
+    // 元画像は triSize の正方形に収まっている
+    // 実際の三角形の斜辺を faceSize にスケールする
+    const scale = faceSize / triSize;
+    
+    // 基準座標（正方形の中心）
+    const centerX = item.x * faceSize + faceSize / 2;
+    const centerY = item.y * faceSize + faceSize / 2;
+    
+    // position に応じた回転角度
+    let posRotation = 0;
+    
+    switch(item.position){
+      case 'top':
+        // 上側：斜辺を上辺に配置 → 元画像を180度回転
+        posRotation = 180;
+        break;
+      case 'right':
+        // 右側：斜辺を右辺に配置 → 元画像を270度回転
+        posRotation = 270;
+        break;
+      case 'bottom':
+        // 下側：斜辺を下辺に配置 → 元画像のまま
+        posRotation = 0;
+        break;
+      case 'left':
+        // 左側：斜辺を左辺に配置 → 元画像を90度回転
+        posRotation = 90;
+        break;
+    }
+    
+    // 合計回転角度
+    const totalRotation = (posRotation + (item.rotation || 0)) % 360;
+    
+    ctx.save();
+    
+    // 正方形の中心に移動
+    ctx.translate(centerX, centerY);
+    
+    // 回転
+    ctx.rotate(totalRotation * Math.PI / 180);
+    
+    // 直角二等辺三角形の描画
+    const drawSize = triSize * scale;
+    ctx.drawImage(
+      face.canvas,
+      faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height, // 元画像の切り出し開始位置とサイズ
+      -drawSize/2, 0, drawSize, drawSize/2 // 配置先での位置とサイズ
+    );
+    
+    ctx.restore();
+  });
+  
   // プレビュー表示
   el.layoutWrap.style.display = 'block';
-  el.layoutInfo.textContent = `展開図：${canvasWidth} × ${canvasHeight} px（18正方形のみ）`;
+  const triCount = layout.triangles.length;
+  el.layoutInfo.textContent = `展開図：${canvasWidth} × ${canvasHeight} px（18正方形 + ${triCount}三角形）`;
   
   // ダウンロードボタンを有効化
   el.layoutDownload.style.display = 'inline-block';
