@@ -1928,20 +1928,37 @@ function generateLayout(faces){
   const bounds = detectDrawingBounds(squareFace.canvas);
   const faceSize = bounds.width; // 実際の正方形のサイズ
   
+  // 元のキャンバスサイズ（7x7マス）
+  const originalCanvasSize = faceSize * 7;
+  
+  // 回転後のキャンバスサイズ
+  // 5x5マスを基準に45度回転後の対角線を新しい幅・高さとする（切り上げて整数にする）
+  const rotatedCanvasSize = Math.ceil(Math.sqrt(2) * faceSize * 5);
+  
   // キャンバスサイズを計算（7x7、隙間なし）
   const canvasWidth = faceSize * 7;
   const canvasHeight = faceSize * 7;
   
-  // キャンバス作成
+  // 一時キャンバスを作成（7x7マスを描画用）
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = originalCanvasSize;
+  tempCanvas.height = originalCanvasSize;
+  const tempCtx = tempCanvas.getContext('2d');
+
+  // 背景を白に（一時キャンバス）
+  tempCtx.fillStyle = '#ffffff';
+  tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+  // 最終的な表示用キャンバス（回転後のサイズ）
   const canvas = el.layoutCanvas;
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  canvas.width = rotatedCanvasSize;
+  canvas.height = rotatedCanvasSize;
   const ctx = canvas.getContext('2d');
-  
-  // 背景を白に
+
+  // 背景を白に（最終キャンバス）
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   // 直角二等辺三角形を描画
   layout.triangles.forEach(item => {
     const face = faces.find(f => f.name === item.name);
@@ -1987,24 +2004,24 @@ function generateLayout(faces){
     // 合計回転角度
     const totalRotation = (posRotation + (item.rotation || 0)) % 360;
     
-    ctx.save();
+    tempCtx.save();
     
     // 正方形の中心に移動
-    ctx.translate(centerX, centerY);
+    tempCtx.translate(centerX, centerY);
     
     // 回転
-    ctx.rotate(totalRotation * Math.PI / 180);
+    tempCtx.rotate(totalRotation * Math.PI / 180);
     
     // 直角二等辺三角形の描画
 //    const drawSize = triSize * scale;
     const drawSize = faceSize + 4;	// 正方形サイズ＋マージン(周囲2ピクセル分)
-    ctx.drawImage(
+    tempCtx.drawImage(
       face.canvas,
       faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height, // 元画像の切り出し開始位置とサイズ
       -drawSize/2, 0, drawSize, drawSize/2 // 配置先での位置とサイズ
     );
     
-    ctx.restore();
+    tempCtx.restore();
   });
   
   // 正方形を描画
@@ -2021,34 +2038,53 @@ function generateLayout(faces){
     
     // 回転がある場合は回転処理を適用
     if(item.rotation && item.rotation !== 0){
-      ctx.save(); // 現在の状態を保存
+      tempCtx.save(); // 現在の状態を保存
       
       // 回転の中心点（配置先の中央）に移動
-      ctx.translate(px + faceSize / 2, py + faceSize / 2);
+      tempCtx.translate(px + faceSize / 2, py + faceSize / 2);
       
       // 回転（度数法→ラジアン）
-      ctx.rotate(item.rotation * Math.PI / 180);
+      tempCtx.rotate(item.rotation * Math.PI / 180);
       
       // 回転後の描画位置を調整（中心が原点になっているので左上に戻す）
-      ctx.translate(-faceSize / 2, -faceSize / 2);
+      tempCtx.translate(-faceSize / 2, -faceSize / 2);
       
       // 描画領域だけを切り出して配置
-      ctx.drawImage(
+      tempCtx.drawImage(
         face.canvas,
         faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
         0, 0, faceBounds.width, faceBounds.height
       );
       
-      ctx.restore(); // 状態を復元
+      tempCtx.restore(); // 状態を復元
     } else {
       // 回転なしの場合は従来通り
-      ctx.drawImage(
+      tempCtx.drawImage(
         face.canvas,
         faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
         px, py, faceBounds.width, faceBounds.height
       );
     }
   });
+
+  // 一時キャンバスを45度回転させて最終キャンバスに描画
+  // 最終キャンバスの中心に移動
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  // 45度回転
+  ctx.rotate(45 * Math.PI / 180);
+  // 一時キャンバスを中心を基準に描画
+  ctx.drawImage(
+    tempCanvas,
+    -tempCanvas.width / 2,
+    -tempCanvas.height / 2
+  );
+  ctx.restore();
+  
+  // 最終キャンバスの外周に境界線を描画
+  ctx.strokeStyle = '#000000'; // 黒色
+  ctx.lineWidth = 2 * 2; // キャンバス内に幅2ピクセルで描画するために、2倍して設定する
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
   
   // プレビュー表示
   el.layoutWrap.style.display = 'block';
