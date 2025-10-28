@@ -151,6 +151,14 @@
         </div>
       </div>
 
+      <div id="scaleRow" style="margin-top:10px; display:none;">
+        <label>下半球の縮小率（0.90～1.00 が実用）</label>
+        <div class="range-row">
+          <input type="range" id="scaleRange" min="0.90" max="1.00" step="0.01" value="0.97" />
+          <input type="number" id="scaleNumber" min="0.90" max="1.00" step="0.01" value="0.97" style="width:100px;" />
+        </div>
+      </div>
+
       <div id="truncRow" style="margin-top:10px; display:none;">
         <label>切頂率 t（0.25〜0.4 が実用）</label>
         <div class="range-row">
@@ -1280,6 +1288,9 @@ const el = {
   truncRow: document.getElementById('truncRow'),
   truncRange: document.getElementById('truncRange'),
   truncNumber: document.getElementById('truncNumber'),
+  scaleRow: document.getElementById('scaleRow'),
+  scaleRange: document.getElementById('scaleRange'),
+  scaleNumber: document.getElementById('scaleNumber'),
   runBtn: document.getElementById('runBtn'),
   clearBtn: document.getElementById('clearBtn'),
   fmt: document.getElementById('fmt'),
@@ -1674,6 +1685,8 @@ setInputInfo(originalImage);
 el.polyType.addEventListener('change', ()=>{
   const trunc = el.polyType.value === 'truncated';
   el.truncRow.style.display = trunc ? 'block' : 'none';
+  const rhombic = el.polyType.value === 'rhombicubocta';
+  el.scaleRow.style.display = rhombic ? 'block' : 'none';
 });
 
 el.truncRange.addEventListener('input', ()=>{
@@ -1681,6 +1694,13 @@ el.truncRange.addEventListener('input', ()=>{
 });
 el.truncNumber.addEventListener('input', ()=>{
   el.truncRange.value = el.truncNumber.value;
+});
+
+el.scaleRange.addEventListener('input', ()=>{
+  el.scaleNumber.value = el.scaleRange.value;
+});
+el.scaleNumber.addEventListener('input', ()=>{
+  el.scaleRange.value = el.scaleNumber.value;
 });
 
 el.qualityRange.addEventListener('input', ()=>{
@@ -2291,7 +2311,7 @@ function generateDoubleLayout(faces){
   const margin = 0; // マージンなし
   
   // パターン2の縮小率
-  const scale2 = 0.97;
+  const scale2 = parseFloat(el.scaleNumber.value || '0.97');
   const scaled2Width = Math.ceil(result2.width * scale2);    // 切り上げて整数に
   const scaled2Height = Math.ceil(result2.height * scale2);  // 切り上げて整数に
   
