@@ -959,7 +959,7 @@ function convertEquirectToTruncatedIcosahedron(equirectImage, faceSize, t=1/3){
 }
 
 // 頂点座標を直接受け取るバージョン
-function splitAndTransformTriangleWithVertices(srcCanvas, vertices){
+function splitAndTransformTriangleWithVertices(srcCanvas, vertices, targetEdgeLen){
   if(!vertices || vertices.length !== 3) {
     return [srcCanvas, srcCanvas, srcCanvas];
   }
@@ -976,8 +976,8 @@ function splitAndTransformTriangleWithVertices(srcCanvas, vertices){
     [vertices[2], center, vertices[0]]
   ];
   
-  // 各三角形を直角二等辺三角形に変形
-  const results = triangles.map(tri => transformTo90_45_45(srcCanvas, tri));
+  // 各三角形を直角二等辺三角形に変形(ターゲット辺長を渡す)
+  const results = triangles.map(tri => transformTo90_45_45(srcCanvas, tri, targetEdgeLen));
   
   return results;
 }
@@ -1056,7 +1056,7 @@ function detectTriangleVertices(imgData, size){
 }
 
 // 二等辺三角形を直角二等辺三角形（90°-45°-45°）に変形
-function transformTo90_45_45(srcCanvas, srcTri){
+function transformTo90_45_45(srcCanvas, srcTri, targetEdgeLen){
   const size = srcCanvas.width;
   const outCanvas = document.createElement('canvas');
   outCanvas.width = size;
@@ -1074,7 +1074,6 @@ function transformTo90_45_45(srcCanvas, srcTri){
   const edge20 = Math.hypot(srcTri[0][0] - srcTri[2][0], srcTri[0][1] - srcTri[2][1]);
   
   // 最長辺を見つける（これが直角三角形の斜辺になる）
-  let maxEdgeLen = Math.max(edge01, edge12, edge20);
   let apexIdx = 0; // 直角の頂点（最長辺の対頂点）
   
   if(edge01 >= edge12 && edge01 >= edge20) {
@@ -1090,9 +1089,8 @@ function transformTo90_45_45(srcCanvas, srcTri){
   const srcLeft = srcTri[(apexIdx + 1) % 3];
   const srcRight = srcTri[(apexIdx + 2) % 3];
   
-  // ターゲット直角二等辺三角形（90°頂点を上に配置）
-  const tgtSize = size * 0.85; // キャンバス内に余白を持たせる
-  const halfBase = tgtSize / 2;
+  // ターゲット直角二等辺三角形（90°頂点を上に配置、斜辺 = targetEdgeLen に合わせる）
+  const halfBase = targetEdgeLen / 2; // 斜辺の半分
   
   const tgtApex = [size / 2, size / 2 - halfBase * 0.5]; // 上（90°頂点）
   const tgtLeft = [size / 2 - halfBase, size / 2 + halfBase * 0.5]; // 左下
@@ -1190,8 +1188,8 @@ function convertEquirectToRhombicuboctahedron(equirectImage, faceSize){
     const canvas = result.canvas;
     const vertices = result.vertices2D; // 実際の2D頂点座標を取得
     
-    // 正三角形を3つの直角二等辺三角形に分割・変形（頂点座標を渡す）
-    const splitCanvases = splitAndTransformTriangleWithVertices(canvas, vertices);
+    // 正三角形を3つの直角二等辺三角形に分割・変形（頂点座標を渡す）正方形の辺長に合わせて変形
+    const splitCanvases = splitAndTransformTriangleWithVertices(canvas, vertices, refEdgeLen);
     splitCanvases.forEach((splitCanvas, j)=>{
       const subName = String.fromCharCode(97 + j); // 'a', 'b', 'c'
       faces.push({name:`tri_${String(i).padStart(2,'0')}_${subName}`, canvas: splitCanvas});
