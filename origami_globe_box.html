@@ -194,7 +194,8 @@
     <div style="margin-top:12px;">
       <button class="btn secondary" id="dlAllBtn">面を一括ZIP保存</button>
       <button class="btn" id="gridBtn">1枚タイルを生成</button>
-      <button class="btn" id="layoutBtn">展開図を作成</button>
+      <button class="btn" id="layoutBtn">展開図パターン1を作成</button>
+      <button class="btn" id="layoutDoubleBtn">展開図パターン1+2を作成</button>
       <a id="gridDownload" class="btn ghost" style="display:none;">タイル画像を保存</a>
       <a id="layoutDownload" class="btn ghost" style="display:none;">展開図を保存</a>
       <div id="gridInfo" class="mini" style="margin-top:8px; opacity:.85;"></div>
@@ -1302,6 +1303,7 @@ const el = {
   layoutInfo: document.getElementById('layoutInfo'),
   layoutCanvas: document.getElementById('layoutCanvas'),
   layoutWrap: document.getElementById('layoutWrap'),
+  layoutDoubleBtn: document.getElementById('layoutDoubleBtn'),
 };
 
 let inputImage = null;
@@ -2185,8 +2187,12 @@ function generateSingleLayout(faces, patternNumber){
   // 最終キャンバスの中心に移動
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
-  // 45度回転
-  ctx.rotate(45 * Math.PI / 180);
+  // 45度回転(上半球と下半球で向かい合うように回転)
+  if(patternNumber === 1){
+    ctx.rotate(45 * Math.PI / 180);
+  } else {
+    ctx.rotate(-45 * Math.PI / 180);
+  }
   // 一時キャンバスを中心を基準に描画
   ctx.drawImage(tempCanvas, -tempCanvas.width / 2, -tempCanvas.height / 2);
   ctx.restore();
@@ -2253,6 +2259,92 @@ function generateLayout(faces){
   };
 }
 
+// 2つの展開図を上下に結合して生成
+function generateDoubleLayout(faces){
+  if(!faces.length){
+    alert('先に変換を実行してください。');
+    return;
+  }
+  
+  if(lastPoly !== 'rhombicubocta'){ 
+    alert('展開図作成は現在、斜方立方八面体のみ対応しています。'); 
+    return; 
+  }
+  
+  // パターン1とパターン2の展開図を生成
+  const result1 = generateSingleLayout(faces, 1);
+  const result2 = generateSingleLayout(faces, 2);
+  
+  if(!result1 || !result2){
+    alert('展開図の生成に失敗しました。');
+    return;
+  }
+  
+  // マージン（間隔）を計算
+//  const squareFace = faces.find(f => f.name.startsWith('sq_'));
+//  const bounds = detectDrawingBounds(squareFace.canvas);
+//  const faceSize = bounds.width;
+//  const margin = Math.ceil(faceSize * 0.5); // 0.5マス分の間隔
+  const margin = 0; // マージンなし
+  
+  // 結合後のキャンバスサイズ
+  const combinedWidth = Math.max(result1.width, result2.width);
+  const combinedHeight = result1.height + margin + result2.height;
+  
+  // 結合キャンバスを作成
+  const combinedCanvas = document.createElement('canvas');
+  combinedCanvas.width = combinedWidth;
+  combinedCanvas.height = combinedHeight;
+  const ctx = combinedCanvas.getContext('2d');
+  
+  // 背景を白に
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+  
+  // パターン1を上部に配置（中央揃え）
+  const x1 = (combinedWidth - result1.width) / 2;
+  ctx.drawImage(result1.canvas, x1, 0);
+  
+  // パターン2を下部に配置（中央揃え）
+  const x2 = (combinedWidth - result2.width) / 2;
+  const y2 = result1.height + margin;
+  ctx.drawImage(result2.canvas, x2, y2);
+  
+  console.log('2つの展開図を結合完了');
+  console.log('パターン1:', result1.width, 'x', result1.height);
+  console.log('パターン2:', result2.width, 'x', result2.height);
+  console.log('結合後:', combinedWidth, 'x', combinedHeight);
+  
+  // プレビューキャンバスに表示
+  const canvas = el.layoutCanvas;
+  canvas.width = combinedCanvas.width;
+  canvas.height = combinedCanvas.height;
+  const previewCtx = canvas.getContext('2d');
+  previewCtx.drawImage(combinedCanvas, 0, 0);
+  
+  // プレビュー表示
+  el.layoutWrap.style.display = 'block';
+  el.layoutInfo.textContent = `展開図パターン1+2：${combinedWidth} × ${combinedHeight} px`;
+  
+  // ダウンロードボタンを有効化
+  el.layoutDownload.style.display = 'inline-block';
+  el.layoutDownload.onclick = async () => {
+    const mime = el.fmt.value;
+    const quality = parseFloat(el.qualityRange.value);
+    const ext = extFromMime(mime);
+    const prefix = el.prefix.value || '';
+    const blob = await canvasToBlob(combinedCanvas, mime, quality);
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prefix}rhombicubocta_layout_double.${ext}`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+}
+
 el.layoutBtn.addEventListener('click', ()=>{
   if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
   if(lastPoly !== 'rhombicubocta'){ 
@@ -2260,8 +2352,19 @@ el.layoutBtn.addEventListener('click', ()=>{
     return; 
   }
   
-  // 展開図生成処理（次のステップで実装）
+  // 展開図生成処理（既存のgenerateLayout呼び出し）
   generateLayout(lastFaces);
+});
+
+el.layoutDoubleBtn.addEventListener('click', ()=>{
+  if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
+  if(lastPoly !== 'rhombicubocta'){ 
+    alert('展開図作成は現在、斜方立方八面体のみ対応しています。'); 
+    return; 
+  }
+  
+  // 2パターン結合版を生成
+  generateDoubleLayout(lastFaces);
 });
 
 </script>
