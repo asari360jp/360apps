@@ -1824,27 +1824,27 @@ function getRhombicuboctaLayout(){
   // 順番は後から自由に変更可能
   layout.squares = [
     // 1行目
-    { name: 'sq_07', x: 1, y: 0, rotation: 0 },
-    { name: 'sq_09', x: 2, y: 0, rotation: 0 },
-    { name: 'sq_06', x: 3, y: 0, rotation: 0 },
+    { name: 'sq_07', x: 1, y: 0, rotation: 270 },
+    { name: 'sq_09', x: 2, y: 0, rotation: 270 },
+    { name: 'sq_06', x: 3, y: 0, rotation: 270 },
     // 2行目
-    { name: 'sq_07', x: 0, y: 1, rotation: 0 },
-    { name: 'sq_02', x: 2, y: 1, rotation: 0 },
+    { name: 'sq_07', x: 0, y: 1, rotation: 180 },
+    { name: 'sq_02', x: 2, y: 1, rotation: 270 },
     { name: 'sq_06', x: 4, y: 1, rotation: 0 },
     // 3行目
-    { name: 'sq_15', x: 0, y: 2, rotation: 0 },
-    { name: 'sq_17', x: 1, y: 2, rotation: 0 },
-    { name: 'sq_12', x: 2, y: 2, rotation: 0 },
-    { name: 'sq_16', x: 3, y: 2, rotation: 0 },
-    { name: 'sq_14', x: 4, y: 2, rotation: 0 },
+    { name: 'sq_15', x: 0, y: 2, rotation: 270 },
+    { name: 'sq_17', x: 1, y: 2, rotation: 270 },
+    { name: 'sq_12', x: 2, y: 2, rotation: 270 },
+    { name: 'sq_16', x: 3, y: 2, rotation: 270 },
+    { name: 'sq_14', x: 4, y: 2, rotation: 90 },
     // 4行目
     { name: 'sq_05', x: 0, y: 3, rotation: 0 },
-    { name: 'sq_00', x: 2, y: 3, rotation: 0 },
-    { name: 'sq_04', x: 4, y: 3, rotation: 0 },
+    { name: 'sq_00', x: 2, y: 3, rotation: 270 },
+    { name: 'sq_04', x: 4, y: 3, rotation: 180 },
     // 5行目
-    { name: 'sq_05', x: 1, y: 4, rotation: 0 },
-    { name: 'sq_08', x: 2, y: 4, rotation: 0 },
-    { name: 'sq_04', x: 3, y: 4, rotation: 0 },
+    { name: 'sq_05', x: 1, y: 4, rotation: 270 },
+    { name: 'sq_08', x: 2, y: 4, rotation: 270 },
+    { name: 'sq_04', x: 3, y: 4, rotation: 270 },
   ];
   
   // 三角形はとりあえず空
@@ -1893,12 +1893,35 @@ function generateLayout(faces){
     const px = item.x * faceSize;
     const py = item.y * faceSize;
     
-    // 描画領域だけを切り出して配置
-    ctx.drawImage(
-      face.canvas,
-      faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height, // 元画像の切り出し範囲
-      px, py, faceBounds.width, faceBounds.height // 配置先
-    );
+    // 回転がある場合は回転処理を適用
+    if(item.rotation && item.rotation !== 0){
+      ctx.save(); // 現在の状態を保存
+      
+      // 回転の中心点（配置先の中央）に移動
+      ctx.translate(px + faceSize / 2, py + faceSize / 2);
+      
+      // 回転（度数法→ラジアン）
+      ctx.rotate(item.rotation * Math.PI / 180);
+      
+      // 回転後の描画位置を調整（中心が原点になっているので左上に戻す）
+      ctx.translate(-faceSize / 2, -faceSize / 2);
+      
+      // 描画領域だけを切り出して配置
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        0, 0, faceBounds.width, faceBounds.height
+      );
+      
+      ctx.restore(); // 状態を復元
+    } else {
+      // 回転なしの場合は従来通り
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        px, py, faceBounds.width, faceBounds.height
+      );
+    }
   });
   
   // プレビュー表示
