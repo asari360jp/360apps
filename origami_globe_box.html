@@ -2025,9 +2025,9 @@ function getRhombicuboctaLayout(patternNumber){
   }
 }
 
-// 展開図を生成してプレビュー
-function generateLayout(faces){
-  const layout = getRhombicuboctaLayout(1); // パターン1を使用
+// 個別の展開図キャンバスを生成（表示はしない）
+function generateSingleLayout(faces, patternNumber){
+  const layout = getRhombicuboctaLayout(patternNumber);
   
   // faceSizeを取得（正方形の実際の描画サイズ）
   const squareFace = faces.find(f => f.name.startsWith('sq_'));
@@ -2038,7 +2038,13 @@ function generateLayout(faces){
   
   // 正方形の実際の描画領域を検出
   const bounds = detectDrawingBounds(squareFace.canvas);
-  const faceSize = bounds.width; // 実際の正方形のサイズ
+  const faceSize = bounds.width;
+  
+  // 45度回転後のキャンバスサイズを計算
+  function calculateRotatedCanvasSize(originalSize) {
+    const diagonal = Math.sqrt(2) * originalSize;
+    return Math.ceil(diagonal);
+  }
   
   // 元のキャンバスサイズ（7x7マス）
   const originalCanvasSize = faceSize * 7;
@@ -2047,30 +2053,26 @@ function generateLayout(faces){
   // 5x5マスを基準に45度回転後の対角線を新しい幅・高さとする（切り上げて整数にする）
   const rotatedCanvasSize = Math.ceil(Math.sqrt(2) * faceSize * 5);
   
-  // キャンバスサイズを計算（7x7、隙間なし）
-  const canvasWidth = faceSize * 7;
-  const canvasHeight = faceSize * 7;
-  
   // 一時キャンバスを作成（7x7マスを描画用）
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = originalCanvasSize;
   tempCanvas.height = originalCanvasSize;
   const tempCtx = tempCanvas.getContext('2d');
-
+  
   // 背景を白に（一時キャンバス）
   tempCtx.fillStyle = '#ffffff';
   tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-  // 最終的な表示用キャンバス（回転後のサイズ）
-  const canvas = el.layoutCanvas;
+  
+  // 最終的なキャンバス（回転後のサイズ）
+  const canvas = document.createElement('canvas');
   canvas.width = rotatedCanvasSize;
   canvas.height = rotatedCanvasSize;
   const ctx = canvas.getContext('2d');
-
+  
   // 背景を白に（最終キャンバス）
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+  
   // 直角二等辺三角形を描画
   layout.triangles.forEach(item => {
     const face = faces.find(f => f.name === item.name);
@@ -2178,7 +2180,7 @@ function generateLayout(faces){
       );
     }
   });
-
+  
   // 一時キャンバスを45度回転させて最終キャンバスに描画
   // 最終キャンバスの中心に移動
   ctx.save();
@@ -2186,11 +2188,7 @@ function generateLayout(faces){
   // 45度回転
   ctx.rotate(45 * Math.PI / 180);
   // 一時キャンバスを中心を基準に描画
-  ctx.drawImage(
-    tempCanvas,
-    -tempCanvas.width / 2,
-    -tempCanvas.height / 2
-  );
+  ctx.drawImage(tempCanvas, -tempCanvas.width / 2, -tempCanvas.height / 2);
   ctx.restore();
   
   // 最終キャンバスの外周に境界線を描画
@@ -2198,10 +2196,43 @@ function generateLayout(faces){
   ctx.lineWidth = 2 * 2; // キャンバス内に幅2ピクセルで描画するために、2倍して設定する
   ctx.strokeRect(0, 0, canvas.width, canvas.height);
   
+  return {
+    canvas: canvas,
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+// 展開図を生成してプレビュー（単一パターン）
+function generateLayout(faces){
+  if(!faces.length){
+    alert('先に変換を実行してください。');
+    return;
+  }
+  
+  if(lastPoly !== 'rhombicubocta'){ 
+    alert('展開図作成は現在、斜方立方八面体のみ対応しています。'); 
+    return; 
+  }
+  
+  // パターン1の展開図を生成
+  const result = generateSingleLayout(faces, 1);
+  
+  if(!result){
+    alert('展開図の生成に失敗しました。');
+    return;
+  }
+  
+  // プレビューキャンバスに表示
+  const canvas = el.layoutCanvas;
+  canvas.width = result.width;
+  canvas.height = result.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(result.canvas, 0, 0);
+  
   // プレビュー表示
   el.layoutWrap.style.display = 'block';
-  const triCount = layout.triangles.length;
-  el.layoutInfo.textContent = `展開図：${canvasWidth} × ${canvasHeight} px（18正方形 + ${triCount}三角形）`;
+  el.layoutInfo.textContent = `展開図パターン1：${result.width} × ${result.height} px`;
   
   // ダウンロードボタンを有効化
   el.layoutDownload.style.display = 'inline-block';
@@ -2210,12 +2241,12 @@ function generateLayout(faces){
     const quality = parseFloat(el.qualityRange.value);
     const ext = extFromMime(mime);
     const prefix = el.prefix.value || '';
-    const blob = await canvasToBlob(canvas, mime, quality);
+    const blob = await canvasToBlob(result.canvas, mime, quality);
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${prefix}rhombicubocta_layout.${ext}`;
+    a.download = `${prefix}rhombicubocta_layout1.${ext}`;
     a.click();
     
     setTimeout(() => URL.revokeObjectURL(url), 10000);
