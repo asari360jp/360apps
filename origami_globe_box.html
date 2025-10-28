@@ -1772,6 +1772,109 @@ el.gridBtn.addEventListener('click', ()=>{
   buildGridAndPreview(lastFaces);
 });
 
+/* ============================= 展開図生成 ============================= */
+
+// 斜方立方八面体の展開図レイアウト定義
+function getRhombicuboctaLayout(){
+  const layout = {
+    squares: [],
+    triangles: []
+  };
+  
+  // 正方形を5x5の格子状に配置（sq_00 ~ sq_17）
+  // 順番は後から自由に変更可能
+  layout.squares = [
+    // 1行目
+    { name: 'sq_00', x: 0, y: 0, rotation: 0 },
+    { name: 'sq_01', x: 1, y: 0, rotation: 0 },
+    { name: 'sq_02', x: 2, y: 0, rotation: 0 },
+    { name: 'sq_03', x: 3, y: 0, rotation: 0 },
+    { name: 'sq_04', x: 4, y: 0, rotation: 0 },
+    // 2行目
+    { name: 'sq_05', x: 0, y: 1, rotation: 0 },
+    { name: 'sq_06', x: 1, y: 1, rotation: 0 },
+    { name: 'sq_07', x: 2, y: 1, rotation: 0 },
+    { name: 'sq_08', x: 3, y: 1, rotation: 0 },
+    { name: 'sq_09', x: 4, y: 1, rotation: 0 },
+    // 3行目
+    { name: 'sq_10', x: 0, y: 2, rotation: 0 },
+    { name: 'sq_11', x: 1, y: 2, rotation: 0 },
+    { name: 'sq_12', x: 2, y: 2, rotation: 0 },
+    { name: 'sq_13', x: 3, y: 2, rotation: 0 },
+    { name: 'sq_14', x: 4, y: 2, rotation: 0 },
+    // 4行目
+    { name: 'sq_15', x: 0, y: 4, rotation: 0 },
+    { name: 'sq_16', x: 1, y: 3, rotation: 0 },
+    { name: 'sq_17', x: 3, y: 3, rotation: 0 },
+  ];
+  
+  // 三角形はとりあえず空
+  
+  return layout;
+}
+
+// 展開図を生成してプレビュー
+function generateLayout(faces){
+  const layout = getRhombicuboctaLayout();
+  
+  // faceSizeを取得（正方形の1辺）
+  const squareFace = faces.find(f => f.name.startsWith('sq_'));
+  if(!squareFace){
+    alert('正方形面が見つかりません。');
+    return;
+  }
+  const faceSize = squareFace.canvas.width;
+  
+  // キャンバスサイズを計算（5x5、マージンなし）
+  const canvasWidth = faceSize * 5;
+  const canvasHeight = faceSize * 5;
+  
+  // キャンバス作成
+  const canvas = el.layoutCanvas;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  const ctx = canvas.getContext('2d');
+  
+  // 背景を白に
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // 正方形を描画
+  layout.squares.forEach(item => {
+    const face = faces.find(f => f.name === item.name);
+    if(!face) return;
+    
+    // ピクセル座標を計算（隙間なし）
+    const px = item.x * faceSize;
+    const py = item.y * faceSize;
+    
+    // 描画
+    ctx.drawImage(face.canvas, px, py);
+  });
+  
+  // プレビュー表示
+  el.layoutWrap.style.display = 'block';
+  el.layoutInfo.textContent = `展開図：${canvasWidth} × ${canvasHeight} px（18正方形のみ）`;
+  
+  // ダウンロードボタンを有効化
+  el.layoutDownload.style.display = 'inline-block';
+  el.layoutDownload.onclick = async () => {
+    const mime = el.fmt.value;
+    const quality = parseFloat(el.qualityRange.value);
+    const ext = extFromMime(mime);
+    const prefix = el.prefix.value || '';
+    const blob = await canvasToBlob(canvas, mime, quality);
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prefix}rhombicubocta_layout.${ext}`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+}
+
 el.layoutBtn.addEventListener('click', ()=>{
   if(!lastFaces.length){ alert('先に変換を実行してください。'); return; }
   if(lastPoly !== 'rhombicubocta'){ 
