@@ -1094,9 +1094,9 @@ function transformTo90_45_45(srcCanvas, srcTri){
   const tgtSize = size * 0.85; // キャンバス内に余白を持たせる
   const halfBase = tgtSize / 2;
   
-  const tgtApex = [size / 2, size / 2 - halfBase * 0.7]; // 上（90°頂点）
-  const tgtLeft = [size / 2 - halfBase, size / 2 + halfBase * 0.7]; // 左下
-  const tgtRight = [size / 2 + halfBase, size / 2 + halfBase * 0.7]; // 右下
+  const tgtApex = [size / 2, size / 2 - halfBase * 0.5]; // 上（90°頂点）
+  const tgtLeft = [size / 2 - halfBase, size / 2 + halfBase * 0.5]; // 左下
+  const tgtRight = [size / 2 + halfBase, size / 2 + halfBase * 0.5]; // 右下
   
   // ピクセルごとに変換
   for(let py = 0; py < size; py++){
