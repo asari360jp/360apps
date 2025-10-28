@@ -821,7 +821,7 @@ function renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize, targetEdgePx=null
     }
   }
   ctx.putImageData(img,0,0);
-  return canvas;
+  return {canvas, vertices2D: P2}; // 2D頂点座標も返す
 }
 
 
@@ -945,17 +945,226 @@ function convertEquirectToTruncatedIcosahedron(equirectImage, faceSize, t=1/3){
 
   // 五角形（辺長を hexEdgePx に合わせる＝必要なら縮小）
   pentagons.forEach((poly, i)=>{
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ hexEdgePx);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ hexEdgePx).canvas;
     faces.push({name:`pent_${String(i).padStart(2,'0')}`, kind:'P', canvas, poly3:poly});
   });
 
   // 六角形（従来どおりフィット。※必要なら同じ target を渡してもOK）
   hexagons.forEach((poly, i)=>{
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ null);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly, faceSize, /*targetEdgePx*/ null).canvas;
     faces.push({name:`hex_${String(i).padStart(2,'0')}`, kind:'H', canvas, poly3:poly});
   });
 
   return faces;
+}
+
+// 頂点座標を直接受け取るバージョン
+function splitAndTransformTriangleWithVertices(srcCanvas, vertices){
+  if(!vertices || vertices.length !== 3) {
+    return [srcCanvas, srcCanvas, srcCanvas];
+  }
+  
+  // 重心
+  const cx = (vertices[0][0] + vertices[1][0] + vertices[2][0]) / 3;
+  const cy = (vertices[0][1] + vertices[1][1] + vertices[2][1]) / 3;
+  const center = [cx, cy];
+  
+  // 3つの二等辺三角形を定義
+  const triangles = [
+    [vertices[0], center, vertices[1]],
+    [vertices[1], center, vertices[2]],
+    [vertices[2], center, vertices[0]]
+  ];
+  
+  // 各三角形を直角二等辺三角形に変形
+  const results = triangles.map(tri => transformTo90_45_45(srcCanvas, tri));
+  
+  return results;
+}
+
+/* ============================= 三角形分割・変形処理 ============================= */
+// 正三角形を重心で3分割し、各二等辺三角形を直角二等辺三角形に変形
+function splitAndTransformTriangle(srcCanvas){
+  const size = srcCanvas.width;
+  const ctx = srcCanvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, size, size);
+  
+  // 三角形の実際の頂点を検出（非透明ピクセルの境界から）
+  const vertices = detectTriangleVertices(imgData, size);
+  if(!vertices || vertices.length !== 3) {
+    // 検出失敗時は元のキャンバスをそのまま返す
+    return [srcCanvas, srcCanvas, srcCanvas];
+  }
+  
+  // 重心
+  const cx = (vertices[0][0] + vertices[1][0] + vertices[2][0]) / 3;
+  const cy = (vertices[0][1] + vertices[1][1] + vertices[2][1]) / 3;
+  const center = [cx, cy];
+  
+  // 3つの二等辺三角形を定義
+  const triangles = [
+    [vertices[0], center, vertices[1]],
+    [vertices[1], center, vertices[2]],
+    [vertices[2], center, vertices[0]]
+  ];
+  
+  // 各三角形を直角二等辺三角形に変形
+  const results = triangles.map(tri => transformTo90_45_45(srcCanvas, tri));
+  
+  return results;
+}
+
+// キャンバスから三角形の頂点を検出
+function detectTriangleVertices(imgData, size){
+  const data = imgData.data;
+  let minY = size, maxY = 0;
+  let topX = 0, bottomLeft = [0, 0], bottomRight = [0, 0];
+  
+  // 上端の頂点を検出
+  for(let y = 0; y < size; y++){
+    for(let x = 0; x < size; x++){
+      const alpha = data[(y * size + x) * 4 + 3];
+      if(alpha > 10){
+        if(y < minY){
+          minY = y;
+          topX = x;
+        }
+        if(y > maxY) maxY = y;
+      }
+    }
+  }
+  
+  // 下端の左右頂点を検出
+  let leftMost = size, rightMost = 0;
+  for(let x = 0; x < size; x++){
+    for(let y = Math.floor(maxY * 0.9); y <= maxY; y++){
+      const alpha = data[(y * size + x) * 4 + 3];
+      if(alpha > 10){
+        if(x < leftMost){
+          leftMost = x;
+          bottomLeft = [x, y];
+        }
+        if(x > rightMost){
+          rightMost = x;
+          bottomRight = [x, y];
+        }
+      }
+    }
+  }
+  
+  return [[topX, minY], bottomLeft, bottomRight];
+}
+
+// 二等辺三角形を直角二等辺三角形（90°-45°-45°）に変形
+function transformTo90_45_45(srcCanvas, srcTri){
+  const size = srcCanvas.width;
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = size;
+  outCanvas.height = size;
+  const outCtx = outCanvas.getContext('2d');
+  const srcCtx = srcCanvas.getContext('2d');
+  
+  // ソース画像データ
+  const srcData = srcCtx.getImageData(0, 0, size, size);
+  const outData = outCtx.createImageData(size, size);
+  
+  // ソース三角形の辺長を計算
+  const edge01 = Math.hypot(srcTri[1][0] - srcTri[0][0], srcTri[1][1] - srcTri[0][1]);
+  const edge12 = Math.hypot(srcTri[2][0] - srcTri[1][0], srcTri[2][1] - srcTri[1][1]);
+  const edge20 = Math.hypot(srcTri[0][0] - srcTri[2][0], srcTri[0][1] - srcTri[2][1]);
+  
+  // 最長辺を見つける（これが直角三角形の斜辺になる）
+  let maxEdgeLen = Math.max(edge01, edge12, edge20);
+  let apexIdx = 0; // 直角の頂点（最長辺の対頂点）
+  
+  if(edge01 >= edge12 && edge01 >= edge20) {
+    apexIdx = 2; // 辺0-1が最長なら、頂点2が直角
+  } else if(edge12 >= edge01 && edge12 >= edge20) {
+    apexIdx = 0; // 辺1-2が最長なら、頂点0が直角
+  } else {
+    apexIdx = 1; // 辺2-0が最長なら、頂点1が直角
+  }
+  
+  // ソース三角形の頂点を再配置（apex, left, right）
+  const srcApex = srcTri[apexIdx];
+  const srcLeft = srcTri[(apexIdx + 1) % 3];
+  const srcRight = srcTri[(apexIdx + 2) % 3];
+  
+  // ターゲット直角二等辺三角形（90°頂点を上に配置）
+  const tgtSize = size * 0.85; // キャンバス内に余白を持たせる
+  const halfBase = tgtSize / 2;
+  
+  const tgtApex = [size / 2, size / 2 - halfBase * 0.7]; // 上（90°頂点）
+  const tgtLeft = [size / 2 - halfBase, size / 2 + halfBase * 0.7]; // 左下
+  const tgtRight = [size / 2 + halfBase, size / 2 + halfBase * 0.7]; // 右下
+  
+  // ピクセルごとに変換
+  for(let py = 0; py < size; py++){
+    for(let px = 0; px < size; px++){
+      // ターゲット三角形内かチェック
+      const bc = getBarycentricCoords(px + 0.5, py + 0.5, tgtApex, tgtLeft, tgtRight);
+      if(!bc) continue;
+      
+      // バリセン座標を使ってソース座標を計算
+      const srcX = bc.u * srcApex[0] + bc.v * srcLeft[0] + bc.w * srcRight[0];
+      const srcY = bc.u * srcApex[1] + bc.v * srcLeft[1] + bc.w * srcRight[1];
+      
+      // ソース画像から双線形補間でピクセル取得
+      const color = bilinearSample(srcData, srcX, srcY, size, size);
+      if(color){
+        const idx = (py * size + px) * 4;
+        outData.data[idx] = color[0];
+        outData.data[idx + 1] = color[1];
+        outData.data[idx + 2] = color[2];
+        outData.data[idx + 3] = color[3];
+      }
+    }
+  }
+  
+  outCtx.putImageData(outData, 0, 0);
+  return outCanvas;
+}
+
+// バリセン座標を計算（三角形内ならu,v,wを返す、外なら null）
+function getBarycentricCoords(px, py, v0, v1, v2){
+  const v0x = v1[0] - v0[0], v0y = v1[1] - v0[1];
+  const v1x = v2[0] - v0[0], v1y = v2[1] - v0[1];
+  const v2x = px - v0[0], v2y = py - v0[1];
+  
+  const den = v0x * v1y - v1x * v0y;
+  if(Math.abs(den) < 1e-10) return null;
+  
+  const v = (v2x * v1y - v1x * v2y) / den;
+  const w = (v0x * v2y - v2x * v0y) / den;
+  const u = 1 - v - w;
+  
+  if(u >= -0.001 && v >= -0.001 && w >= -0.001) return {u, v, w};
+  return null;
+}
+
+// 双線形サンプリング
+function bilinearSample(imgData, x, y, w, h){
+  x = Math.max(0, Math.min(w - 1, x));
+  y = Math.max(0, Math.min(h - 1, y));
+  
+  const x0 = Math.floor(x), x1 = Math.min(w - 1, x0 + 1);
+  const y0 = Math.floor(y), y1 = Math.min(h - 1, y0 + 1);
+  const dx = x - x0, dy = y - y0;
+  
+  const idx = (xx, yy) => (yy * w + xx) * 4;
+  const get = (xx, yy) => {
+    const i = idx(xx, yy);
+    return [imgData.data[i], imgData.data[i+1], imgData.data[i+2], imgData.data[i+3]];
+  };
+  
+  const c00 = get(x0, y0), c10 = get(x1, y0);
+  const c01 = get(x0, y1), c11 = get(x1, y1);
+  
+  const c0 = c00.map((v, i) => v * (1 - dx) + c10[i] * dx);
+  const c1 = c01.map((v, i) => v * (1 - dx) + c11[i] * dx);
+  const c = c0.map((v, i) => v * (1 - dy) + c1[i] * dy);
+  
+  return c;
 }
 
 /* ============================= 変換エントリ（斜方立方八面体） ============================= */
@@ -974,18 +1183,26 @@ function convertEquirectToRhombicuboctahedron(equirectImage, faceSize){
   const firstSquare = squares[0].map(idx => V[idx]);
   const refEdgeLen = projectedAvgEdgeLenIfFitted(firstSquare);
 
-  // 三角形面（8個）- 正方形と辺長を合わせる
+  // 三角形面（8個）- 正方形と辺長を合わせる → さらに3分割して直角二等辺三角形に変形
   triangles.forEach((tri, i)=>{
     const poly3D = tri.map(idx => V[idx]);
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize, refEdgeLen);
-    faces.push({name:`tri_${String(i).padStart(2,'0')}`, canvas});
+    const result = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize, refEdgeLen);
+    const canvas = result.canvas;
+    const vertices = result.vertices2D; // 実際の2D頂点座標を取得
+    
+    // 正三角形を3つの直角二等辺三角形に分割・変形（頂点座標を渡す）
+    const splitCanvases = splitAndTransformTriangleWithVertices(canvas, vertices);
+    splitCanvases.forEach((splitCanvas, j)=>{
+      const subName = String.fromCharCode(97 + j); // 'a', 'b', 'c'
+      faces.push({name:`tri_${String(i).padStart(2,'0')}_${subName}`, canvas: splitCanvas});
+    });
   });
 
   // 正方形面（18個）
   squares.forEach((quad, i)=>{
     const poly3D = quad.map(idx => V[idx]);
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
-    faces.push({name:`sq_${String(i).padStart(2,'0')}`, canvas});
+    const result = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
+    faces.push({name:`sq_${String(i).padStart(2,'0')}`, canvas: result.canvas});
   });
 
   // ヘルパー関数（切頂二十面体から流用）
@@ -1018,7 +1235,7 @@ function convertEquirectToTetrahedron(equirectImage, faceSize){
   // 4つの三角形面
   F.forEach((tri, i)=>{
     const poly3D = tri.map(idx => V[idx]);
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize).canvas;
     faces.push({name:`tri_${String(i).padStart(2,'0')}`, canvas});
   });
 
@@ -1040,7 +1257,7 @@ function convertEquirectToDodecahedron(equirectImage, faceSize){
   // 12個の五角形面
   F.forEach((pent, i)=>{
     const poly3D = pent.map(idx => V[idx]);
-    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize);
+    const canvas = renderPolyFacePlanar(eData, ew, eh, poly3D, faceSize).canvas;
     faces.push({name:`pent_${String(i).padStart(2,'0')}`, canvas});
   });
 
