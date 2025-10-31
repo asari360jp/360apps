@@ -78,22 +78,21 @@
     --accent:#4CAF50;   /* アクセントカラー（実行ボタンなど） */
   }
 -->
-/* 配色パターン：スレート×クリムゾン（鮮やかな赤） */
-:root{
-  --bg1:#1e1b2e;
-  --bg2:#3d2a3a;
-  --panel: rgba(255,255,255,0.08);
-  --accent:#dc2f02;
-}
-a {
-  color: var(--accent); /* アクセントカラーを使用 */
-  text-decoration: none;
-}
-a:hover {
-  color: #ff4820; /* アクセントより明るい色 */
-  text-decoration: underline;
-}
-  
+  /* 配色パターン：スレート×クリムゾン（鮮やかな赤） */
+  :root{
+    --bg1:#1e1b2e;
+    --bg2:#3d2a3a;
+    --panel: rgba(255,255,255,0.08);
+    --accent:#dc2f02;
+  }
+  a {
+    color: var(--accent); /* アクセントカラーを使用 */
+    text-decoration: none;
+  }
+  a:hover {
+    color: #ff4820; /* アクセントより明るい色 */
+    text-decoration: underline;
+  }
   body{
     margin:0; padding:20px; color:#fff;
     font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
@@ -142,7 +141,7 @@ a:hover {
 <div class="container">
   <h1>360エクイレクタングラー → 折り紙まんまるボックス　変換</h1>
     <ul>
-      <li><a href="https://www.sweet-paper.net/" target="blank">Sweet Paper</a> さんの <a href="https://www.youtube.com/watch?v=98vaehDMnGE" target="blank">折り紙まんまるボックス</a> 用に画像を展開します</li>
+      <li><a href="https://www.sweet-paper.net/" target="blank">Sweet Paper さん</a> 考案の <a href="https://www.youtube.com/watch?v=98vaehDMnGE" target="blank">折り紙まんまるボックス</a> 用に画像を展開します</li>
     </ul>
   
   <div class="row">
@@ -267,6 +266,13 @@ a:hover {
       <p class="mini">展開図プレビュー：</p>
       <canvas id="layoutCanvas" class="grid-preview"></canvas>
     </div>
+  </div>
+</div>
+
+<!-- アプリ一覧へのリンク -->
+<div class="container">
+  <div style="text-align:right; margin-top:20px; font-size:12px; opacity:0.7;">
+    <a href="https://asari360jp.github.io/360apps/">asari360jp/360apps/</a>
   </div>
 </div>
 
