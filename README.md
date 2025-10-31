@@ -6,7 +6,7 @@
 
 ---
 
-## Included Apps
+## アプリ一覧 / Included Apps
 **equi2poly3.html** - エクイレクタングラー → 多面体変換
 - [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/equi2poly3.html)
 - [いけだじゅんじ さん](https://github.com/ikejun360go/360onWeb/) のソースコードをベースとして作成
