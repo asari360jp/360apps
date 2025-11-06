@@ -1888,33 +1888,33 @@ function detectDrawingBounds(canvas){
   };
 }
 
-// 正六面体の展開図レイアウト定義(パターン1: px-nz-nx)
+// 正六面体の展開図レイアウト定義(パターン1: py-nz-ny)
 function getCubeLayout1(){
+  const layout = {
+    squares: []
+  };
+  
+  // [py][pz][ny] を横一列に配置(画像としては縦連結)
+  layout.squares = [
+    { name: 'py(+Y)', x: 0, y: 0, rotation: 0 },
+    { name: 'nz(-Z)', x: 1, y: 0, rotation: 270 },
+    { name: 'ny(-Y)', x: 2, y: 0, rotation: 180 }
+  ];
+  
+  return layout;
+}
+
+// 正六面体の展開図レイアウト定義(パターン2: nx-pz-px)
+function getCubeLayout2(){
   const layout = {
     squares: []
   };
   
   // [px][nz][nx] を横一列に配置
   layout.squares = [
-    { name: 'px(+X)', x: 0, y: 0, rotation: 0 },
-    { name: 'nz(-Z)', x: 1, y: 0, rotation: 0 },
-    { name: 'nx(-X)', x: 2, y: 0, rotation: 0 }
-  ];
-  
-  return layout;
-}
-
-// 正六面体の展開図レイアウト定義(パターン2: py-pz-ny)
-function getCubeLayout2(){
-  const layout = {
-    squares: []
-  };
-  
-  // [py][pz][ny] を横一列に配置
-  layout.squares = [
-    { name: 'py(+Y)', x: 0, y: 0, rotation: 180 },
-    { name: 'pz(+Z)', x: 1, y: 0, rotation: 270 },
-    { name: 'ny(-Y)', x: 2, y: 0, rotation: 0 }
+    { name: 'nx(-X)', x: 0, y: 0, rotation: 0 },
+    { name: 'pz(+Z)', x: 1, y: 0, rotation: 0 },
+    { name: 'px(+X)', x: 2, y: 0, rotation: 0 }
   ];
   
   return layout;
