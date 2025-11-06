@@ -1786,6 +1786,11 @@ if (type === 'octa' || type === 'icosa' || type === 'dodecahedron' || type === '
   lastFaces = faces;
   lastPoly = type;
   
+  // プレビュー領域のクリア
+  el.faces.innerHTML = '';
+  el.gridWrap.style.display = 'none';
+  el.layoutWrap.style.display = 'none';
+  
   // 斜方立方八面体の場合は自動的に展開図を生成
   if(type === 'rhombicubocta'){
     generateDoubleLayout(faces);
@@ -1794,7 +1799,6 @@ if (type === 'octa' || type === 'icosa' || type === 'dodecahedron' || type === '
     renderFacesToPanel(faces);
   }
   
-  el.gridWrap.style.display = 'none';
   el.gridDownload.style.display = 'none';
   el.gridInfo.textContent = '';
 });
