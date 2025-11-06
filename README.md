@@ -7,19 +7,24 @@
 ---
 
 ## アプリ一覧 / Included Apps
-**equi2poly3.html** - エクイレクタングラー → 多面体変換
-- [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/equi2poly3.html)
+**[equi2poly3.html](https://asari360jp.github.io/360apps/equi2poly3.html)**
+- エクイレクタングラー → 多面体変換
 - [いけだじゅんじ さん](https://github.com/ikejun360go/360onWeb/) のソースコードをベースとして作成
 
-**origami_globe_box.html** - エクイレクタングラー → 折り紙まんまるボックス
-- [GitHub Pages へのリンク](https://asari360jp.github.io/360apps/origami_globe_box.html)
+**[cube_postcard.html](https://asari360jp.github.io/360apps/cube_postcard.html)**
+- エクイレクタングラー → サイコロポストカード
+- オリジナルデザインの組み立てるとサイコロ状になるポストカード画像を作成するアプリです
+- 作り方を記載した宛名面のサンプルは[こちら](https://asari360jp.github.io/360apps/cube_postcard_instructions.jpg)
+
+**[origami_globe_box.html](https://asari360jp.github.io/360apps/origami_globe_box.html)**
+- エクイレクタングラー → 折り紙まんまるボックス
 - [Sweet Paper さん](https://www.sweet-paper.net/) 考案の [折り紙まんまるボックス](https://www.youtube.com/watch?v=98vaehDMnGE) 用画像を作成するアプリです
 
 ---
 
 ## 使用方法 / How to Use
 
-上記の「GitHub Pages へのリンク」から実行してください
+上記、[アプリ一覧]のファイル名(*.html)のリンクから実行してください。
 
 ※すべての処理はブラウザ内で完結します。画像はサーバーにアップロードされません。
 
