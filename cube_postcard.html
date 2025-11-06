@@ -1,8 +1,8 @@
 <!--
 /**
- * asari360jp/360apps/origami_globe_box.html
+ * asari360jp/360apps/cube_postcard.html
  * 
- * @description 360エクイレクタングラー → 折り紙まんまるボックス　変換
+ * @description 360エクイレクタングラー → サイコロポストカード　変換
  * @author asari keisuke
  * @license 再配布・改変自由ですが、著作権は放棄していません
  * @disclaimer 
@@ -46,6 +46,9 @@
  *
  * ここから、asari360jp/360apps/origami_globe_box.htmlとしての修正
  * ver.20251028 「折り紙まんまるボックス」用画像作成アプリへの修正
+ *
+ * ここから、asari360jp/360apps/origami_globe_box.html, cube_postcard.htmlとしての修正
+ * ver.20251106 「サイコロポストカード」作成機能の実装
  * ------------------------------------------------------------------------------------------------
  *
  * 既知の注意:
@@ -53,7 +56,7 @@
  *  - equirectの極付近では画素密度の関係でにじみが見える場合があります（仕様）。
  *
  * クレジット:
- *  - 折り方考案: Sweet Paper (https://www.youtube.com/c/SweetPaper/)
+ *  - 「折り紙まんまるボックス」折り方考案: Sweet Paper (https://www.youtube.com/c/SweetPaper/)
  *  - Base Code & Design: いけだじゅんじ (https://github.com/ikejun360go/360onWeb/)
  *  - Enhanced with: Claude / ChatGPT / Grok（実装提案・バグ修正・最適化）
  *  - Third-party: JSZip (MIT)
@@ -67,7 +70,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Equirectangular to "Origami Globe Box" Exporter</title>
+<title>Equirectangular to "Cube POSTCARD" Exporter</title>
 <style>
 <!--
   :root{
@@ -139,11 +142,8 @@
 </head>
 <body>
 <div class="container">
-  <h1>360エクイレクタングラー → 折り紙まんまるボックス　変換</h1>
-    <ul>
-      <li><a href="https://www.sweet-paper.net/" target="blank">Sweet Paper さん</a> 考案の <a href="https://www.youtube.com/watch?v=98vaehDMnGE" target="blank">折り紙まんまるボックス</a> 用に画像を展開します</li>
-    </ul>
-  
+  <h1>360エクイレクタングラー → サイコロポストカード　変換</h1>
+
   <div class="row">
     <!-- 入力 -->
     <div class="card">
@@ -164,25 +164,24 @@
           <select id="polyType">
 <!--
             <option value="tetrahedron">正四面体（4三角）</option>
+-->
             <option value="cube">正六面体（6正方）</option>
+<!--
             <option value="octa">正八面体（8三角）</option>
             <option value="dodecahedron">正十二面体（12五角）</option>
             <option value="icosa">正二十面体（20三角）</option>
             <option value="truncated">切頂二十面体（12五角+20六角）</option>
--->
             <option value="rhombicubocta">斜方立方八面体（8三角+18正方）</option>
+-->
           </select>
         </div>
         <div style="flex:1; min-width:220px;">
-          <label>面サイズ（推奨：幅/6〜/8）</label>
+          <label>面サイズ（推奨：幅/4）</label>
           <input type="number" id="faceSize" min="64" max="4096" step="1" value="512" />
         </div>
       </div>
 
-<!--
       <div id="scaleRow" style="margin-top:10px; display:none;">
--->
-      <div id="scaleRow" style="margin-top:10px;">
         <label>下半球の縮小率（0.90～1.00 が実用）</label>
         <div class="range-row">
           <input type="range" id="scaleRange" min="0.90" max="1.00" step="0.01" value="0.97" />
@@ -1791,9 +1790,11 @@ if (type === 'octa' || type === 'icosa' || type === 'dodecahedron' || type === '
   el.gridWrap.style.display = 'none';
   el.layoutWrap.style.display = 'none';
   
-  // 斜方立方八面体の場合は自動的に展開図を生成
+  // 斜方立方八面体と正六面体の場合は自動的に展開図を生成
   if(type === 'rhombicubocta'){
     generateDoubleLayout(faces);
+  } else if(type === 'cube'){
+    generateCubeDoubleLayout(faces);
   } else {
     // 他の多面体の場合は従来通り面を表示
     renderFacesToPanel(faces);
@@ -1884,6 +1885,215 @@ function detectDrawingBounds(canvas){
     y: minY,
     width: maxX - minX + 1,
     height: maxY - minY + 1
+  };
+}
+
+// 正六面体の展開図レイアウト定義(パターン1: px-nz-nx)
+function getCubeLayout1(){
+  const layout = {
+    squares: []
+  };
+  
+  // [px][nz][nx] を横一列に配置
+  layout.squares = [
+    { name: 'px(+X)', x: 0, y: 0, rotation: 0 },
+    { name: 'nz(-Z)', x: 1, y: 0, rotation: 0 },
+    { name: 'nx(-X)', x: 2, y: 0, rotation: 0 }
+  ];
+  
+  return layout;
+}
+
+// 正六面体の展開図レイアウト定義(パターン2: py-pz-ny)
+function getCubeLayout2(){
+  const layout = {
+    squares: []
+  };
+  
+  // [py][pz][ny] を横一列に配置
+  layout.squares = [
+    { name: 'py(+Y)', x: 0, y: 0, rotation: 180 },
+    { name: 'pz(+Z)', x: 1, y: 0, rotation: 270 },
+    { name: 'ny(-Y)', x: 2, y: 0, rotation: 0 }
+  ];
+  
+  return layout;
+}
+
+// 正六面体の展開図を生成（個別パターン）
+function generateCubeLayout(faces, patternNumber){
+  const layout = patternNumber === 1 ? getCubeLayout1() : getCubeLayout2();
+  
+  // faceSizeを取得（正方形の実際の描画サイズ）
+  const squareFace = faces.find(f => f.name.startsWith('px') || f.name.startsWith('py'));
+  if(!squareFace){
+    alert('正方形面が見つかりません。');
+    return null;
+  }
+  
+  // 正方形の実際の描画領域を検出
+  const bounds = detectDrawingBounds(squareFace.canvas);
+  const faceSize = bounds.width;
+  
+  // キャンバスサイズ（3×1グリッド）
+  const canvasWidth = faceSize * 3;
+  const canvasHeight = faceSize * 1;
+  
+  // キャンバスを作成
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  const ctx = canvas.getContext('2d');
+  
+  // 背景を白に
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // 正方形を配置
+  layout.squares.forEach(item => {
+    const face = faces.find(f => f.name === item.name);
+    if(!face) return;
+    
+    // この面の描画領域を検出
+    const faceBounds = detectDrawingBounds(face.canvas);
+    
+    // ピクセル座標を計算
+    const px = item.x * faceSize;
+    const py = item.y * faceSize;
+    
+    // 回転がある場合は回転処理を適用
+    if(item.rotation && item.rotation !== 0){
+      ctx.save();
+      ctx.translate(px + faceSize / 2, py + faceSize / 2);
+      ctx.rotate(item.rotation * Math.PI / 180);
+      ctx.translate(-faceSize / 2, -faceSize / 2);
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        0, 0, faceBounds.width, faceBounds.height
+      );
+      ctx.restore();
+    } else {
+      // 回転なしの場合
+      ctx.drawImage(
+        face.canvas,
+        faceBounds.x, faceBounds.y, faceBounds.width, faceBounds.height,
+        px, py, faceBounds.width, faceBounds.height
+      );
+    }
+  });
+  
+  return {
+    canvas: canvas,
+    width: canvas.width,
+    height: canvas.height
+  };
+}
+
+// 正六面体の2つの展開図を上下に結合
+function generateCubeDoubleLayout(faces){
+  if(!faces.length){
+    alert('先に変換を実行してください。');
+    return;
+  }
+  
+  if(lastPoly !== 'cube'){ 
+    alert('この機能はキューブのみ対応しています。'); 
+    return; 
+  }
+  
+  // パターン1とパターン2の展開図を生成
+  const result1 = generateCubeLayout(faces, 1);
+  const result2 = generateCubeLayout(faces, 2);
+  
+  if(!result1 || !result2){
+    alert('展開図の生成に失敗しました。');
+    return;
+  }
+  
+  // faceSizeを取得
+  const squareFace = faces.find(f => f.name.startsWith('px') || f.name.startsWith('py'));
+  const bounds = detectDrawingBounds(squareFace.canvas);
+  const faceSize = bounds.width;
+  
+  // 余白の定義（faceSizeに対する比率）
+  const marginBetween = Math.ceil(faceSize * 0.25);   // パターン間：25%
+  const marginTopBottom = Math.ceil(faceSize * 0.125); // 上下外周：12.5%
+  const marginLeftRight = Math.ceil(faceSize * 0.35);  // 左右外周：35%
+  
+  // 結合後のキャンバスサイズ
+  const combinedWidth = result1.width + marginLeftRight * 2;  // 左右余白
+  const combinedHeight = result1.height + result2.height + marginTopBottom * 2 + marginBetween;  // 上下外周 + パターン間
+  
+  // 結合キャンバスを作成
+  const combinedCanvas = document.createElement('canvas');
+  combinedCanvas.width = combinedWidth;
+  combinedCanvas.height = combinedHeight;
+  const ctx = combinedCanvas.getContext('2d');
+  
+  // 背景を白に
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, combinedCanvas.width, combinedCanvas.height);
+  
+  // 切り取り線を描画
+  ctx.fillStyle = '#000000';  // 黒色
+  ctx.fillRect(0, ((combinedHeight / 2) - 1), combinedWidth, 2);
+  
+  // 切り離し領域に灰色の矩形を描画
+  ctx.fillStyle = '#cccccc';  // 灰色
+  ctx.fillRect(0, 0, (marginLeftRight + faceSize / 2), marginTopBottom);
+  ctx.fillRect((marginLeftRight + faceSize), 0, faceSize, marginTopBottom);
+  ctx.fillRect((marginLeftRight + faceSize * 2.5), 0, (marginLeftRight + faceSize / 2), marginTopBottom);
+  ctx.fillRect(0, (marginTopBottom + faceSize), (marginLeftRight + faceSize / 2), marginBetween);
+  ctx.fillRect((marginLeftRight + faceSize), (marginTopBottom + faceSize), faceSize, marginBetween);
+  ctx.fillRect((marginLeftRight + faceSize * 2.5), (marginTopBottom + faceSize), (marginLeftRight + faceSize / 2), marginBetween);
+  ctx.fillRect(0, (marginTopBottom + faceSize * 2 + marginBetween), (marginLeftRight + faceSize / 2), marginTopBottom);
+  ctx.fillRect((marginLeftRight + faceSize), (marginTopBottom + faceSize * 2 + marginBetween), faceSize, marginTopBottom);
+  ctx.fillRect((marginLeftRight + faceSize * 2.5), (marginTopBottom + faceSize * 2 + marginBetween), (marginLeftRight + faceSize / 2), marginTopBottom);
+  
+  // パターン1を上部に配置
+  const x1 = marginLeftRight;
+  const y1 = marginTopBottom;
+  ctx.drawImage(result1.canvas, x1, y1);
+  
+  // パターン2を下部に配置
+  const x2 = marginLeftRight;
+  const y2 = marginTopBottom + result1.height + marginBetween;  // 上余白 + パターン1 + パターン間余白
+  ctx.drawImage(result2.canvas, x2, y2);
+  
+  console.log('2つの展開図を結合完了');
+  console.log('faceSize:', faceSize);
+  console.log('パターン1:', result1.width, 'x', result1.height);
+  console.log('パターン2:', result2.width, 'x', result2.height);
+  console.log('結合後:', combinedWidth, 'x', combinedHeight);
+  
+  // プレビューキャンバスに表示
+  const canvas = el.layoutCanvas;
+  canvas.width = combinedCanvas.width;
+  canvas.height = combinedCanvas.height;
+  const previewCtx = canvas.getContext('2d');
+  previewCtx.drawImage(combinedCanvas, 0, 0);
+  
+  // プレビュー表示
+  el.layoutWrap.style.display = 'block';
+  el.layoutInfo.textContent = `展開図（キューブ）: ${combinedWidth} × ${combinedHeight} px`;
+  
+  // ダウンロードボタンを有効化
+  el.layoutDownload.style.display = 'inline-block';
+  el.layoutDownload.onclick = async () => {
+    const mime = el.fmt.value;
+    const quality = parseFloat(el.qualityRange.value);
+    const ext = extFromMime(mime);
+    const prefix = el.prefix.value || '';
+    const blob = await canvasToBlob(combinedCanvas, mime, quality);
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prefix}cube_layout.${ext}`;
+    a.click();
+    
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 }
 
