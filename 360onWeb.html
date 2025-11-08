@@ -1570,6 +1570,14 @@ imgRotateSlider.addEventListener('change', function() {
                     Math.pow(touch2.clientY - touch1.clientY, 2)
                 );
                 tempScale = parseFloat(scaleSlider.value);
+            } else if (e.touches.length === 3) {
+                // 3本指操作でX/Y Shiftモードに移行
+                isMovingCenter = true;
+                isDragging = false;
+                isPinching = false;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+                touchIndicator.style.display = 'block';
             }
         }
 
@@ -1604,6 +1612,21 @@ imgRotateSlider.addEventListener('change', function() {
                 tempScale = Math.max(0.1, Math.min(2.9, tempScale + scaleChange));
                 lastPinchDistance = currentDistance;
                 scheduleRender();
+            } else if (isMovingCenter && e.touches.length === 3) {
+                // 3本指でX/Y Shiftを操作
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - lastTouchX;
+                const deltaY = touch.clientY - lastTouchY;
+
+                centerOffsetX += deltaX * 0.005;
+                centerOffsetY += deltaY * 0.005;
+
+                centerOffsetX = Math.max(-1, Math.min(1, centerOffsetX));
+                centerOffsetY = Math.max(-1, Math.min(1, centerOffsetY));
+
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+                scheduleRender();
             }
         }
 
@@ -1627,6 +1650,13 @@ imgRotateSlider.addEventListener('change', function() {
                 // ピンチ操作完了時に状態保存
                 saveState();
                 scheduleRender();
+            } else if (isMovingCenter) {
+                // 3本指操作完了時の処理
+                touchIndicator.style.display = 'none';
+                
+                // PC環境でない場合でもcenterOffsetX/Yは更新されているので
+                // そのまま状態保存
+                saveState();
             }
             isDragging = false;
             isPinching = false;
