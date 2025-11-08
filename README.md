@@ -20,6 +20,10 @@
 - エクイレクタングラー → 折り紙まんまるボックス
 - [Sweet Paper さん](https://www.sweet-paper.net/) 考案の [折り紙まんまるボックス](https://www.youtube.com/watch?v=98vaehDMnGE) 用画像を作成するアプリです
 
+**[360onWeb.html](https://asari360jp.github.io/360apps/360onWeb.html)**
+- 360イメージ編集アプリ
+- [いけだじゅんじ さん](https://github.com/ikejun360go/360onWeb/) のソースコードをベースとして作成
+
 ---
 
 ## 使用方法 / How to Use
