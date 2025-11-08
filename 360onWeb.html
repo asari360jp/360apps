@@ -1,3 +1,31 @@
+<!--
+/**
+ * asari360jp/360apps/360onWeb.html
+ * 
+ * @description 360イメージ編集
+ * @author asari keisuke
+ * @license 再配布・改変自由ですが、著作権は放棄していません
+ * @disclaimer 
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+ *   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY DAMAGES ARISING FROM THE USE OF THIS SOFTWARE.
+ *   このソフトウェアは無保証で提供され、作者は一切の責任を負いません。
+ *   - メモリ不足によるブラウザクラッシュの可能性があります
+ *   - 処理結果の品質は保証されません
+ *   - 重要なデータは事前にバックアップしてください
+ *   - 本ソフトウェアの使用は自己責任でお願いします
+ *
+ * ----- CHANGELOG --------------------------------------------------------------------------------
+ * ver.20250823 初版　https://github.com/ikejun360go/360onWeb/ より360onWebS.html 20250823版をリネーム
+ * ver.20251108 X/Y Shift(中心位置調整)を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
+ *
+ * ------------------------------------------------------------------------------------------------
+ *
+ * クレジット:
+ *  - Base Code & Design: いけだじゅんじ (https://github.com/ikejun360go/360onWeb/)
+ *  - Enhanced with: Claude / ChatGPT / Grok（実装提案・バグ修正・最適化）
+ */
+-->
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -683,6 +711,37 @@ z-index: 15;
                         </div>
                     </div>
 
+                    <!-- X/Y Shift スライダー (PC環境のみ表示) -->
+                    <div class="control-group" id="centerXGroup" style="display: none;">
+                        <div class="control-label">
+                            <span class="label-text">↔️ X-shift</span>
+                            <input type="text" class="value-input" id="centerXInput" value="0.00" style="display: none;">
+                            <span class="value-display" id="centerXValue">0.00</span>
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-with-buttons">
+                                <button class="slider-btn" onclick="decrementSlider('centerXSlider')">−</button>
+                                <input type="range" id="centerXSlider" min="-1" max="1" step="0.01" value="0" style="transform: scaleX(-1);">
+                                <button class="slider-btn" onclick="incrementSlider('centerXSlider')">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group" id="centerYGroup" style="display: none;">
+                        <div class="control-label">
+                            <span class="label-text">↕️ Y-shift</span>
+                            <input type="text" class="value-input" id="centerYInput" value="0.00" style="display: none;">
+                            <span class="value-display" id="centerYValue">0.00</span>
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-with-buttons">
+                                <button class="slider-btn" onclick="decrementSlider('centerYSlider')">−</button>
+                                <input type="range" id="centerYSlider" min="-1" max="1" step="0.01" value="0" style="transform: scaleX(-1);">
+                                <button class="slider-btn" onclick="incrementSlider('centerYSlider')">+</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;"> 
                         <label for="editModeSelect" style="color: white; font-size: 14px; white-space: nowrap; min-width: 120px;">
                         Edit type
@@ -748,7 +807,10 @@ z-index: 15;
         let guidelineImages = {};
         let guidelineRotation = 0;
         
-        
+        // X/Y Shift用の変数を追加
+        let centerOffsetX = 0;
+        let centerOffsetY = 0;
+      
 // プレビュー用キャッシュ（毎フレームの getImageData を排除）
 let workingSourceData = null;
 // 入力を1フレームに合流
@@ -794,6 +856,13 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const undoBtn = document.getElementById('undoBtn');
         const redoBtn = document.getElementById('redoBtn');
 
+        // X/Y Shift用のDOM要素を追加
+        const centerXSlider = document.getElementById('centerXSlider');
+        const centerYSlider = document.getElementById('centerYSlider');
+        const centerXValue = document.getElementById('centerXValue');
+        const centerYValue = document.getElementById('centerYValue');
+        const centerXInput = document.getElementById('centerXInput');
+        const centerYInput = document.getElementById('centerYInput');
 
         // タッチ・マウス操作用変数
         let isDragging = false;
@@ -851,7 +920,10 @@ function loadDisplaySize() {
                 scale: tempScale,
                 pitch: tempPitch,
                 roll: tempRoll,
-                imgRotate: tempImgRotate
+                imgRotate: tempImgRotate,
+                // X/Y Shiftを履歴に追加
+                centerX: centerOffsetX,
+                centerY: centerOffsetY
             };
             
             // 現在の位置以降の履歴を削除（新しい操作があった場合）
@@ -896,11 +968,25 @@ function redo() {
             tempRoll = state.roll;
             tempImgRotate = state.imgRotate;
             
+            // X/Y Shiftの復元を追加
+            centerOffsetX = state.centerX || 0;
+            centerOffsetY = state.centerY || 0;
+            
             // スライダーの値を更新
             scaleSlider.value = tempScale;
             pitchSlider.value = tempPitch;
             rollSlider.value = tempRoll;
             imgRotateSlider.value = tempImgRotate;
+            
+            // X/Y Shiftスライダーの更新を追加
+            if (centerXSlider && centerYSlider) {
+                centerXSlider.value = -centerOffsetX;  // 符号を反転
+                centerYSlider.value = centerOffsetY;
+                centerXValue.textContent = (-centerOffsetX).toFixed(2);
+                centerYValue.textContent = centerOffsetY.toFixed(2);
+                centerXInput.value = (-centerOffsetX).toFixed(2);
+                centerYInput.value = centerOffsetY.toFixed(2);
+            }
             
             // 表示値を更新
             scaleValue.textContent = tempScale.toFixed(1);
@@ -938,6 +1024,13 @@ function updateUndoRedoButtons() {
 loadDisplaySize();
 loadSampleImage();
 loadGuidelineImages();
+            
+            // PC環境判定を追加（タッチデバイスでない場合にX/Y Shiftを表示）
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            if (!isTouchDevice) {
+                document.getElementById('centerXGroup').style.display = 'block';
+                document.getElementById('centerYGroup').style.display = 'block';
+            }
             
             const guidelineSelect = document.getElementById('guidelineSelect');
             guidelineSelect.addEventListener('change', function() {
@@ -1155,6 +1248,19 @@ try {
             tempRoll = 0;
             tempImgRotate = 0;
             
+            // X/Y Shiftのリセット処理を追加
+            centerOffsetX = 0;
+            centerOffsetY = 0;
+            
+            if (centerXSlider && centerYSlider) {
+                centerXSlider.value = '0';
+                centerYSlider.value = '0';
+                centerXValue.textContent = '0.00';
+                centerYValue.textContent = '0.00';
+                centerXInput.value = '0.00';
+                centerYInput.value = '0.00';
+            }
+            
             guidelineRotation = 0;
             document.getElementById('guidelineRotateBtn').style.display = 'none';
             document.getElementById('guidelineSelect').value = 'none';
@@ -1191,6 +1297,31 @@ try {
             imgRotateValue.textContent = tempImgRotate.toFixed(1) + '°';
             scheduleRender();
         });
+
+        // X/Y Shift スライダーのイベントリスナーを追加
+        if (centerXSlider && centerYSlider) {
+            centerXSlider.addEventListener('input', function() {
+                centerOffsetX = -parseFloat(centerXSlider.value);
+                centerXValue.textContent = parseFloat(centerXSlider.value).toFixed(2);
+                scheduleRender();
+            });
+            
+            // X軸のスライダー操作完了時に状態保存
+            centerXSlider.addEventListener('change', function() {
+                saveState();
+            });
+            
+            centerYSlider.addEventListener('input', function() {
+                centerOffsetY = parseFloat(centerYSlider.value);
+                centerYValue.textContent = centerOffsetY.toFixed(2);
+                scheduleRender();
+            });
+            
+            // Y軸のスライダー操作完了時に状態保存
+            centerYSlider.addEventListener('change', function() {
+                saveState();
+            });
+        }
         
         
         
@@ -1233,6 +1364,16 @@ imgRotateSlider.addEventListener('change', function() {
         pitchValue.addEventListener('click', function() { showInput(pitchValue, pitchInput, pitchSlider, true); });
         rollValue.addEventListener('click', function() { showInput(rollValue, rollInput, rollSlider, true); });
         imgRotateValue.addEventListener('click', function() { showInput(imgRotateValue, imgRotateInput, imgRotateSlider, true); });
+        
+        // X/Y Shift の値表示クリックイベントを追加
+        if (centerXValue && centerYValue) {
+            centerXValue.addEventListener('click', function() { 
+                showInput(centerXValue, centerXInput, centerXSlider, false); 
+            });
+            centerYValue.addEventListener('click', function() { 
+                showInput(centerYValue, centerYInput, centerYSlider, false); 
+            });
+        }
 
         function showInput(valueDisplay, input, slider, isDegree) {
             const currentValue = isDegree ? valueDisplay.textContent.replace('°', '') : valueDisplay.textContent;
@@ -1270,8 +1411,36 @@ imgRotateSlider.addEventListener('change', function() {
             scheduleRender();
         }
 
+        // X/Y Shift専用のhideInput関数を追加
+        function hideInputCenter(input, valueDisplay, slider, axis) {
+            let newValue = parseFloat(input.value);
+            const oldSliderValue = parseFloat(slider.value);
+            
+            if (isNaN(newValue)) {
+                newValue = oldSliderValue;
+            } else {
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                newValue = Math.max(min, Math.min(max, newValue));
+                if (newValue !== oldSliderValue) {
+                    slider.value = newValue;
+                    // changeイベントを手動で発火
+                    slider.dispatchEvent(new Event('change'));
+                }
+            }
+            valueDisplay.textContent = newValue.toFixed(2);
+            if (axis === 'X') {
+                centerOffsetX = -newValue;
+            } else if (axis === 'Y') {
+                centerOffsetY = newValue;
+            }
+            input.style.display = 'none';
+            valueDisplay.style.display = 'inline-block';
+            scheduleRender();
+        }
+
         // 入力フィールドのイベント
-        const inputElements = [scaleInput, pitchInput, rollInput, imgRotateInput];
+        const inputElements = [scaleInput, pitchInput, rollInput, imgRotateInput, centerXInput, centerYInput];
         inputElements.forEach(el => {
             el?.addEventListener('blur', function() {
                 const map = new Map([
@@ -1287,6 +1456,22 @@ imgRotateSlider.addEventListener('change', function() {
                 if (e.key === 'Enter') el.blur();
             });
         });
+
+        // X/Y Shift専用のイベントリスナーを追加
+        if (centerXInput && centerYInput) {
+            centerXInput.addEventListener('blur', function() { 
+                hideInputCenter(centerXInput, centerXValue, centerXSlider, 'X'); 
+            });
+            centerXInput.addEventListener('keydown', function(e) { 
+                if (e.key === 'Enter') hideInputCenter(centerXInput, centerXValue, centerXSlider, 'X'); 
+            });
+            centerYInput.addEventListener('blur', function() { 
+                hideInputCenter(centerYInput, centerYValue, centerYSlider, 'Y'); 
+            });
+            centerYInput.addEventListener('keydown', function(e) { 
+                if (e.key === 'Enter') hideInputCenter(centerYInput, centerYValue, centerYSlider, 'Y'); 
+            });
+        }
 
         // マウス・タッチ操作（修正版）
         canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -1564,13 +1749,17 @@ function renderBasicMode(size, scale, pitch, roll, imgRot, sourceImage) {
                     const nx0 = (x / (size - 1)) * 2 - 1;
                     const ny0 = (y / (size - 1)) * 2 - 1;
 
-                    // XY回転
+                    // 1) まず 2D回転の逆変換
                     const rx = nx0 * cosA + ny0 * sinA;
                     const ry = -nx0 * sinA + ny0 * cosA;
 
-                    // 球面効果
-                    const r = Math.sqrt(rx * rx + ry * ry);
-                    const angle = Math.atan2(ry, rx);
+                    // 2) 次に X/Yシフトを打ち消す（逆変換）
+                    const nx = rx - centerOffsetX;
+                    const ny = ry - centerOffsetY;
+
+                    // 3) 球面効果（変数名をnxに変更）
+                    const r = Math.sqrt(nx * nx + ny * ny);
+                    const angle = Math.atan2(ny, nx);
                     const mappedR = 2 * Math.atan(r * (4 - scale));
                     
                     const phi = Math.PI/2 - mappedR;
@@ -1642,11 +1831,17 @@ const srcW = downloadImage.width, srcH = downloadImage.height;
                     const nx0 = (x / (outputSize - 1)) * 2 - 1;
                     const ny0 = (actualY / (outputSize - 1)) * 2 - 1;
 
+                    // 1) 2D回転の逆
                     const rx = nx0 * cosA + ny0 * sinA;
                     const ry = -nx0 * sinA + ny0 * cosA;
 
-                    const r = Math.sqrt(rx * rx + ry * ry);
-                    const angle = Math.atan2(ry, rx);
+                    // 2) X/Yシフトの逆を追加
+                    const nx = rx - centerOffsetX;
+                    const ny = ry - centerOffsetY;
+
+                    // 3) 球面効果（変数名をnxに変更）
+                    const r = Math.sqrt(nx * nx + ny * ny);
+                    const angle = Math.atan2(ny, nx);
                     const mappedR = 2 * Math.atan(r * (4 - scale));
                     
                     const phi = Math.PI/2 - mappedR;
