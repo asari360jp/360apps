@@ -17,6 +17,7 @@
  * ----- CHANGELOG --------------------------------------------------------------------------------
  * ver.20250823 初版　https://github.com/ikejun360go/360onWeb/ より360onWebS.html 20250823版をリネーム
  * ver.20251108 X/Y Shift(中心位置調整)を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
+ * ver.20251124 Yaw回転を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
  *
  * ------------------------------------------------------------------------------------------------
  *
@@ -703,6 +704,21 @@ z-index: 15;
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">
+                            <span class="label-text">Yaw ヨー</span>
+                            <input type="text" class="value-input" id="yawInput" value="0°" style="display: none;">
+                            <span class="value-display" id="yawValue">0.0°</span>
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-with-buttons">
+                                <button class="slider-btn" onclick="decrementSlider('yawSlider')">−</button>
+                                <input type="range" id="yawSlider" min="-180" max="180" step="1" value="0" style="transform: scaleX(-1);">
+                                <button class="slider-btn" onclick="incrementSlider('yawSlider')">+</button>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="control-group">
                         <div class="control-label">
@@ -852,6 +868,7 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const scaleSlider = document.getElementById('scaleSlider');
         const pitchSlider = document.getElementById('pitchSlider');
         const rollSlider = document.getElementById('rollSlider');
+        const yawSlider = document.getElementById('yawSlider');
         const imgRotateSlider = document.getElementById('imgRotateSlider');
         const editModeSelect = document.getElementById('editModeSelect');
         const resolutionSelect = document.getElementById('resolutionSelect');
@@ -861,11 +878,13 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const scaleValue = document.getElementById('scaleValue');
         const pitchValue = document.getElementById('pitchValue');
         const rollValue = document.getElementById('rollValue');
+        const yawValue = document.getElementById('yawValue');
         const imgRotateValue = document.getElementById('imgRotateValue');
 
         const scaleInput = document.getElementById('scaleInput');
         const pitchInput = document.getElementById('pitchInput');
         const rollInput = document.getElementById('rollInput');
+        const yawInput = document.getElementById('yawInput');
         const imgRotateInput = document.getElementById('imgRotateInput');
 
         const undoBtn = document.getElementById('undoBtn');
@@ -889,6 +908,7 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
         let tempScale = parseFloat(scaleSlider.value) || 1.5;
         let tempPitch = parseFloat(pitchSlider.value) || 0;
         let tempRoll = parseFloat(rollSlider.value) || 0;
+        let tempYaw = parseFloat(yawSlider.value) || 0;
         let tempImgRotate = parseFloat(imgRotateSlider.value) || 0;
 
 
@@ -935,6 +955,7 @@ function loadDisplaySize() {
                 scale: tempScale,
                 pitch: tempPitch,
                 roll: tempRoll,
+                yaw: tempYaw,
                 imgRotate: tempImgRotate,
                 // X/Y Shiftを履歴に追加
                 centerX: centerOffsetX,
@@ -981,6 +1002,7 @@ function redo() {
             tempScale = state.scale;
             tempPitch = state.pitch;
             tempRoll = state.roll;
+            tempYaw = state.yaw || 0;
             tempImgRotate = state.imgRotate;
             
             // X/Y Shiftの復元を追加
@@ -991,6 +1013,7 @@ function redo() {
             scaleSlider.value = tempScale;
             pitchSlider.value = tempPitch;
             rollSlider.value = tempRoll;
+            yawSlider.value = tempYaw;
             imgRotateSlider.value = tempImgRotate;
             
             // X/Y Shiftスライダーの更新を追加
@@ -1007,12 +1030,14 @@ function redo() {
             scaleValue.textContent = tempScale.toFixed(1);
             pitchValue.textContent = tempPitch.toFixed(1) + '°';
             rollValue.textContent = tempRoll.toFixed(1) + '°';
+            yawValue.textContent = tempYaw.toFixed(1) + '°';
             imgRotateValue.textContent = tempImgRotate.toFixed(1) + '°';
             
             // 入力フィールドの値も更新
             scaleInput.value = tempScale.toFixed(1);
             pitchInput.value = tempPitch.toFixed(1);
             rollInput.value = tempRoll.toFixed(1);
+            yawInput.value = tempYaw.toFixed(1);
             imgRotateInput.value = tempImgRotate.toFixed(1);
             
 // 再描画
@@ -1246,21 +1271,25 @@ try {
             scaleSlider.value = '1.5';
             pitchSlider.value = '0';
             rollSlider.value = '0';
+            yawSlider.value = '0';
             imgRotateSlider.value = '0';
             
             scaleValue.textContent = '1.5';
             pitchValue.textContent = '0.0°';
             rollValue.textContent = '0.0°';
+            yawValue.textContent = '0.0°';
             imgRotateValue.textContent = '0.0°';
             
             scaleInput.value = '1.5';
             pitchInput.value = '0.0';
             rollInput.value = '0.0';
+            yawInput.value = '0.0';
             imgRotateInput.value = '0.0';
             
             tempScale = 1.5;
             tempPitch = 0;
             tempRoll = 0;
+            tempYaw = 0;
             tempImgRotate = 0;
             
             // X/Y Shiftのリセット処理を追加
@@ -1304,6 +1333,12 @@ try {
         rollSlider.addEventListener('input', function() {
             tempRoll = parseFloat(rollSlider.value);
             rollValue.textContent = tempRoll.toFixed(1) + '°';
+            scheduleRender();
+        });
+
+        yawSlider.addEventListener('input', function() {
+            tempYaw = parseFloat(yawSlider.value);
+            yawValue.textContent = tempYaw.toFixed(1) + '°';
             scheduleRender();
         });
 
@@ -1357,6 +1392,11 @@ rollSlider.addEventListener('change', function() {
     saveState();
 });
 
+// Yaw
+yawSlider.addEventListener('change', function() {
+    saveState();
+});
+
 // ImgRotate
 imgRotateSlider.addEventListener('change', function() {
     saveState();
@@ -1378,6 +1418,7 @@ imgRotateSlider.addEventListener('change', function() {
         scaleValue.addEventListener('click', function() { showInput(scaleValue, scaleInput, scaleSlider, false); });
         pitchValue.addEventListener('click', function() { showInput(pitchValue, pitchInput, pitchSlider, true); });
         rollValue.addEventListener('click', function() { showInput(rollValue, rollInput, rollSlider, true); });
+        yawValue.addEventListener('click', function() { showInput(yawValue, yawInput, yawSlider, true); });
         imgRotateValue.addEventListener('click', function() { showInput(imgRotateValue, imgRotateInput, imgRotateSlider, true); });
         
         // X/Y Shift の値表示クリックイベントを追加
@@ -1413,6 +1454,7 @@ imgRotateSlider.addEventListener('change', function() {
                 valueDisplay.textContent = newValue.toFixed(1) + '°';
                 if (slider === pitchSlider) tempPitch = newValue;
                 else if (slider === rollSlider) tempRoll = newValue;
+                else if (slider === yawSlider) tempYaw = newValue;
                 else if (slider === imgRotateSlider) tempImgRotate = newValue;
             } else {
                 valueDisplay.textContent = newValue.toFixed(1);
@@ -1455,13 +1497,14 @@ imgRotateSlider.addEventListener('change', function() {
         }
 
         // 入力フィールドのイベント
-        const inputElements = [scaleInput, pitchInput, rollInput, imgRotateInput, centerXInput, centerYInput];
+        const inputElements = [scaleInput, pitchInput, rollInput, yawInput, imgRotateInput, centerXInput, centerYInput];
         inputElements.forEach(el => {
             el?.addEventListener('blur', function() {
                 const map = new Map([
                     [scaleInput, [scaleValue, scaleSlider, false]],
                     [pitchInput, [pitchValue, pitchSlider, true]],
                     [rollInput, [rollValue, rollSlider, true]],
+                    [yawInput, [yawValue, yawSlider, true]],
                     [imgRotateInput, [imgRotateValue, imgRotateSlider, true]]
                 ]);
                 const [v, s, d] = map.get(el);
@@ -1559,6 +1602,7 @@ imgRotateSlider.addEventListener('change', function() {
                 isMovingCenter = false;
                 tempPitch = parseFloat(pitchSlider.value);
                 tempRoll = parseFloat(rollSlider.value);
+                tempYaw = parseFloat(yawSlider.value);
             } else if (e.touches.length === 2) {
                 isPinching = true;
                 isDragging = false;
@@ -1596,6 +1640,7 @@ imgRotateSlider.addEventListener('change', function() {
 
                 tempRoll -= deltaX * 0.5;
                 tempPitch += deltaY * 0.5;
+                tempYaw -= deltaX * 0.5;
 
                 lastTouchX = touch.clientX;
                 lastTouchY = touch.clientY;
@@ -1635,10 +1680,13 @@ imgRotateSlider.addEventListener('change', function() {
             if (isDragging) {
                 tempPitch = normalizeAngle(tempPitch, -180, 180);
                 tempRoll = normalizeAngle(tempRoll, -180, 180);
+                tempYaw = normalizeAngle(tempYaw, -180, 180);
                 pitchSlider.value = tempPitch;
                 rollSlider.value = tempRoll;
+                yawSlider.value = tempYaw;
                 pitchValue.textContent = tempPitch.toFixed(1) + '°';
                 rollValue.textContent = tempRoll.toFixed(1) + '°';
+                yawValue.textContent = tempYaw.toFixed(1) + '°';
                 
                 // タッチ操作完了時に状態保存
                 saveState();
@@ -1674,6 +1722,7 @@ imgRotateSlider.addEventListener('change', function() {
             lastTouchY = e.clientY;
             tempPitch = parseFloat(pitchSlider.value);
             tempRoll = parseFloat(rollSlider.value);
+            tempYaw = parseFloat(yawSlider.value);
         }
 
         function handleMouseMove(e) {
@@ -1684,6 +1733,7 @@ imgRotateSlider.addEventListener('change', function() {
 
             tempRoll -= deltaX * 0.5;
             tempPitch += deltaY * 0.5;
+            tempYaw -= deltaX * 0.5;
 
             lastTouchX = e.clientX;
             lastTouchY = e.clientY;
@@ -1694,10 +1744,13 @@ imgRotateSlider.addEventListener('change', function() {
             if (isDragging) {
                 tempPitch = normalizeAngle(tempPitch, -180, 180);
                 tempRoll = normalizeAngle(tempRoll, -180, 180);
+                tempYaw = normalizeAngle(tempYaw, -180, 180);
                 pitchSlider.value = tempPitch;
                 rollSlider.value = tempRoll;
+                yawSlider.value = tempYaw;
                 pitchValue.textContent = tempPitch.toFixed(1) + '°';
                 rollValue.textContent = tempRoll.toFixed(1) + '°';
+                yawValue.textContent = tempYaw.toFixed(1) + '°';
                 
                 // マウス操作完了時に状態保存
                 saveState();
@@ -1720,15 +1773,18 @@ imgRotateSlider.addEventListener('change', function() {
             return [theta, phi];
         }
 
-        function rotatePoint(x, y, z, pitch, roll) {
+        function rotatePoint(x, y, z, pitch, roll, yaw) {
             const cp = Math.cos(pitch);
             const sp = Math.sin(pitch);
             const cr = Math.cos(roll);
             const sr = Math.sin(roll);
+            const cy = Math.cos(yaw);
+            const sy = Math.sin(yaw);
 
-            const rx = x * cr + z * sr;
-            const ry = x * sp * sr + y * cp - z * sp * cr;
-            const rz = -x * cp * sr + y * sp + z * cp * cr;
+            // 3軸回転の合成（Yaw-Pitch-Roll順）
+            const rx = x * (cy * cr - sy * sp * sr) + y * (-sy * cp) + z * (cy * sr + sy * sp * cr);
+            const ry = x * (sy * cr + cy * sp * sr) + y * (cy * cp) + z * (sy * sr - cy * sp * cr);
+            const rz = x * (-cp * sr) + y * sp + z * (cp * cr);
 
             return [rx, ry, rz];
         }
@@ -1740,6 +1796,7 @@ imgRotateSlider.addEventListener('change', function() {
             const scale = tempScale;
             let pitch = (tempPitch * Math.PI) / 180;
             const roll = (tempRoll * Math.PI) / 180;
+	    const yaw = (tempYaw * Math.PI) / 180;
             const imgRot = (tempImgRotate * Math.PI) / 180;
 
             if (!isLittlePlanet) {
@@ -1752,7 +1809,7 @@ if (canvas.width !== size || canvas.height !== size) {
     canvas.height = size;
 }
 
-            renderBasicMode(size, scale, pitch, roll, imgRot, workingImage);
+            renderBasicMode(size, scale, pitch, roll, yaw, imgRot, workingImage);
             drawGuideline();
         }
 
@@ -1778,7 +1835,7 @@ if (canvas.width !== size || canvas.height !== size) {
             ctx.restore();
         }
 
-function renderBasicMode(size, scale, pitch, roll, imgRot, sourceImage) {
+function renderBasicMode(size, scale, pitch, roll, yaw, imgRot, sourceImage) {
     if (!workingSourceData) return; // 画像未準備時の安全策
     const imageData = ctx.createImageData(size, size);
     const data = imageData.data;
@@ -1812,7 +1869,7 @@ function renderBasicMode(size, scale, pitch, roll, imgRot, sourceImage) {
                     const cartesian = sphericalToCartesian(theta, phi);
 
                     // 3D回転
-                    const rotated = rotatePoint(cartesian[0], cartesian[1], cartesian[2], pitch, roll);
+                    const rotated = rotatePoint(cartesian[0], cartesian[1], cartesian[2], pitch, roll, yaw);
                     const spherical = cartesianToSpherical(rotated[0], rotated[1], rotated[2]);
 
 
@@ -1846,7 +1903,7 @@ if (imgX >= 0 && imgX < srcW && imgY >= 0 && imgY < srcH) {
         }
 
         // ダウンロード機能（修正版）
-function processImageInChunks(canvas, ctx, outputSize, scale, pitch, roll, imgRot, chunkSize, currentY, useBilinear, callback) {
+function processImageInChunks(canvas, ctx, outputSize, scale, pitch, roll, yaw, imgRot, chunkSize, currentY, useBilinear, callback) {
             const endY = Math.min(currentY + chunkSize, outputSize);
             const progress = Math.round((currentY / outputSize) * 100);
             document.getElementById('downloadBtn').textContent = '📄 ' + progress + '%';
@@ -1893,7 +1950,7 @@ const srcW = downloadImage.width, srcH = downloadImage.height;
                     const theta = angle;
                     const cartesian = sphericalToCartesian(theta, phi);
 
-                    const rotated = rotatePoint(cartesian[0], cartesian[1], cartesian[2], pitch, roll);
+                    const rotated = rotatePoint(cartesian[0], cartesian[1], cartesian[2], pitch, roll, yaw);
                     const spherical = cartesianToSpherical(rotated[0], rotated[1], rotated[2]);
 
 const u = (spherical[0] + Math.PI) / (2 * Math.PI);
@@ -1937,7 +1994,7 @@ if (useBilinear) {
 
             if (endY < outputSize) {
                 setTimeout(function() {
-processImageInChunks(canvas, ctx, outputSize, scale, pitch, roll, imgRot, chunkSize, endY, useBilinear, callback);
+processImageInChunks(canvas, ctx, outputSize, scale, pitch, roll, yaw, imgRot, chunkSize, endY, useBilinear, callback);
                 }, 10);
             } else {
                 delete processImageInChunks.sourceData;
@@ -1960,6 +2017,7 @@ const useBilinearExport = selectedRes.includes('+'); // 4K+ のとき true
             const scale = parseFloat(scaleSlider.value);
             let pitch = (parseFloat(pitchSlider.value) * Math.PI) / 180;
             const roll = (parseFloat(rollSlider.value) * Math.PI) / 180;
+            const yaw = (parseFloat(yawSlider.value) * Math.PI) / 180;
             const imgRot = (parseFloat(imgRotateSlider.value) * Math.PI) / 180;
 
             if (!isLittlePlanet) {
@@ -1982,7 +2040,7 @@ const useBilinearExport = selectedRes.includes('+'); // 4K+ のとき true
 
                     const chunkSize = outputSize >= 4096 ? 64 : outputSize >= 2048 ? 128 : 256;
                     
-processImageInChunks(downloadCanvas, downloadCtx, outputSize, scale, pitch, roll, imgRot, chunkSize, 0, useBilinearExport, function() {
+processImageInChunks(downloadCanvas, downloadCtx, outputSize, scale, pitch, roll, yaw, imgRot, chunkSize, 0, useBilinearExport, function() {
     let resolutionText;
     if (outputSize === 1024) resolutionText = '1K';
     else if (outputSize === 2048) resolutionText = '2K';
