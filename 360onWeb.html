@@ -18,6 +18,8 @@
  * ver.20250823 初版　https://github.com/ikejun360go/360onWeb/ より360onWebS.html 20250823版をリネーム
  * ver.20251108 X/Y Shift(中心位置調整)を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
  * ver.20251124 Yaw回転を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
+ * ver.20251201 画像表示領域のサイズ変更
+ * ver.20251205 構図ガイドライン画像の読込機能を追加
  *
  * ------------------------------------------------------------------------------------------------
  *
@@ -630,7 +632,12 @@ z-index: 15;
                     <option value="line14">14.U字</option>
                     <option value="line15">15.二つ窓</option>
                     <option value="line16">16.電影クロスゲージ</option>
+                    <option value="loadCustom">📂 ガイド画像読込</option>
                 </select>
+                
+                <!-- 構図ガイドライン画像の手動読み込み用（非表示） -->
+                <input type="file" id="guidelineFileInput" accept="image/png,image/jpeg" style="display: none;">
+                
                 <button class="random-btn" id="randomBtn">🤯</button>
             </div>
             <input type="file" id="fileInput" accept="image/*">
@@ -1079,6 +1086,13 @@ loadGuidelineImages();
             
             const guidelineSelect = document.getElementById('guidelineSelect');
             guidelineSelect.addEventListener('change', function() {
+                // 「ガイド画像読込」が選択された場合
+                if (guidelineSelect.value === 'loadCustom') {
+                    // ファイル選択ダイアログを開く
+                    document.getElementById('guidelineFileInput').click();
+                    return; // render()は呼ばない
+                }
+                
                 guidelineRotation = 0;
                 scheduleRender();
             });
@@ -1088,6 +1102,52 @@ loadGuidelineImages();
                 e.stopPropagation();
                 guidelineRotation = (guidelineRotation + 45) % 360;
                 scheduleRender();
+            });
+
+            document.getElementById('guidelineFileInput').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const guidelineSelect = document.getElementById('guidelineSelect');
+                
+                if (!file) {
+                    // キャンセルされた場合は「ガイドなし」に戻す
+                    guidelineSelect.value = 'none';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // 'custom'という特別なキーで保存
+                        guidelineImages['custom'] = img;
+                        console.log('Custom guideline image loaded:', img.width, 'x', img.height);
+                        
+                        // カスタム画像用オプションがなければ追加
+                        let customOption = Array.from(guidelineSelect.options).find(opt => opt.value === 'custom');
+                        if (!customOption) {
+                            customOption = document.createElement('option');
+                            customOption.value = 'custom';
+                            customOption.textContent = '★ 読込済みガイド';
+                            // 「ガイド画像読込」の直前に挿入
+                            const loadOption = Array.from(guidelineSelect.options).find(opt => opt.value === 'loadCustom');
+                            guidelineSelect.insertBefore(customOption, loadOption);
+                        }
+                        
+                        // カスタム画像を選択
+                        guidelineSelect.value = 'custom';
+                        guidelineRotation = 0;
+                        render();
+                    };
+                    img.onerror = function() {
+                        alert('構図ガイドライン画像の読み込みに失敗しました。');
+                        guidelineSelect.value = 'none';
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+                
+                // ファイル入力をリセット（同じファイルを再選択可能にする）
+                e.target.value = '';
             });
 
             // ワーキングサイズ変更のイベントリスナーを追加
