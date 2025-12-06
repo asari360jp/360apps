@@ -19,7 +19,7 @@
  * ver.20251108 X/Y Shift(中心位置調整)を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
  * ver.20251124 Yaw回転を追加　https://github.com/ikejun360go/360onWeb/ の360onWebTW.html 20250820版より移植
  * ver.20251201 画像表示領域のサイズ変更
- * ver.20251205 構図ガイドライン画像の読込機能を追加
+ * ver.20251206 構図ガイドライン画像の読込機能を追加
  *
  * ------------------------------------------------------------------------------------------------
  *
@@ -104,7 +104,7 @@
         .upload-area {
             border: var(--upload-area-border--);
             border-radius: 10px;
-            padding: 20px;
+            padding: 10px 20px;    /* 上下10px、左右20px */
             text-align: center;
             margin-bottom: 30px;
             background: var(--upload-area-bg--);
@@ -409,7 +409,21 @@
         .guideline-rotate-btn:hover {
             background: rgba(255, 255, 255, 0.5);
         }
-        
+
+        .guideline-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: stretch;
+        }
+
+        .guideline-load-btn {
+            font-size: 12px;
+            padding: 8px 12px;
+            background: #888;
+            width: 100%;
+        }
+
         .guideline-select {
             padding: 8px 12px;
             border-radius: 5px;
@@ -419,8 +433,7 @@
             font-size: 12px;
             cursor: pointer;
             transition: background 0.3s;
-            min-width: 100px;
-            flex-shrink: 0;
+            width: 100%;
         }
         
         .guideline-select:hover {
@@ -614,29 +627,34 @@ z-index: 15;
                 <button class="upload-btn" onclick="resetControlsAndSelectFile()">
                     🖼️+360onWeb
                 </button>
-                <select id="guidelineSelect" class="guideline-select">
-                    <option value="none">ガイドなし(1～16)</option>
-                    <option value="line01"> 1.同心円</option>
-                    <option value="line02"> 2.三重円</option>
-                    <option value="line03"> 3.円分割</option>
-                    <option value="line04"> 4.しぼり</option>
-                    <option value="line05"> 5.渦巻き</option>
-                    <option value="line06"> 6.三分割</option>
-                    <option value="line07"> 7.四分割</option>
-                    <option value="line08"> 8.放射分割</option>
-                    <option value="line09"> 9.斜め分割</option>
-                    <option value="line10">10.遠近斜め</option>
-                    <option value="line11">11.遠近水平</option>
-                    <option value="line12">12.フィボナッチ</option>
-                    <option value="line13">13.S字</option>
-                    <option value="line14">14.U字</option>
-                    <option value="line15">15.二つ窓</option>
-                    <option value="line16">16.電影クロスゲージ</option>
-                    <option value="loadCustom">📂 ガイド画像読込</option>
-                </select>
                 
-                <!-- 構図ガイドライン画像の手動読み込み用（非表示） -->
-                <input type="file" id="guidelineFileInput" accept="image/png,image/jpeg" style="display: none;">
+                <div class="guideline-controls">
+                    <select id="guidelineSelect" class="guideline-select">
+                        <option value="none">ガイドなし(1～16)</option>
+                        <option value="line01"> 1.同心円</option>
+                        <option value="line02"> 2.三重円</option>
+                        <option value="line03"> 3.円分割</option>
+                        <option value="line04"> 4.しぼり</option>
+                        <option value="line05"> 5.渦巻き</option>
+                        <option value="line06"> 6.三分割</option>
+                        <option value="line07"> 7.四分割</option>
+                        <option value="line08"> 8.放射分割</option>
+                        <option value="line09"> 9.斜め分割</option>
+                        <option value="line10">10.遠近斜め</option>
+                        <option value="line11">11.遠近水平</option>
+                        <option value="line12">12.フィボナッチ</option>
+                        <option value="line13">13.S字</option>
+                        <option value="line14">14.U字</option>
+                        <option value="line15">15.二つ窓</option>
+                        <option value="line16">16.電影クロスゲージ</option>
+                    </select>
+                    
+                    <!-- 構図ガイドライン画像の手動読み込み -->
+                    <input type="file" id="guidelineFileInput" accept="image/png,image/jpeg" style="display: none;">
+                    <button class="upload-btn guideline-load-btn" onclick="document.getElementById('guidelineFileInput').click()">
+                        📂ガイド画像読込
+                    </button>
+                </div>
                 
                 <button class="random-btn" id="randomBtn">🤯</button>
             </div>
@@ -1086,13 +1104,6 @@ loadGuidelineImages();
             
             const guidelineSelect = document.getElementById('guidelineSelect');
             guidelineSelect.addEventListener('change', function() {
-                // 「ガイド画像読込」が選択された場合
-                if (guidelineSelect.value === 'loadCustom') {
-                    // ファイル選択ダイアログを開く
-                    document.getElementById('guidelineFileInput').click();
-                    return; // render()は呼ばない
-                }
-                
                 guidelineRotation = 0;
                 scheduleRender();
             });
@@ -1103,16 +1114,11 @@ loadGuidelineImages();
                 guidelineRotation = (guidelineRotation + 45) % 360;
                 scheduleRender();
             });
-
+            
+            // 構図ガイドライン画像の手動読み込み
             document.getElementById('guidelineFileInput').addEventListener('change', function(e) {
                 const file = e.target.files[0];
-                const guidelineSelect = document.getElementById('guidelineSelect');
-                
-                if (!file) {
-                    // キャンセルされた場合は「ガイドなし」に戻す
-                    guidelineSelect.value = 'none';
-                    return;
-                }
+                if (!file) return;
                 
                 const reader = new FileReader();
                 reader.onload = function(event) {
@@ -1122,15 +1128,16 @@ loadGuidelineImages();
                         guidelineImages['custom'] = img;
                         console.log('Custom guideline image loaded:', img.width, 'x', img.height);
                         
+                        // 自動的に選択
+                        const guidelineSelect = document.getElementById('guidelineSelect');
+                        
                         // カスタム画像用オプションがなければ追加
                         let customOption = Array.from(guidelineSelect.options).find(opt => opt.value === 'custom');
                         if (!customOption) {
                             customOption = document.createElement('option');
                             customOption.value = 'custom';
                             customOption.textContent = '★ 読込済みガイド';
-                            // 「ガイド画像読込」の直前に挿入
-                            const loadOption = Array.from(guidelineSelect.options).find(opt => opt.value === 'loadCustom');
-                            guidelineSelect.insertBefore(customOption, loadOption);
+                            guidelineSelect.appendChild(customOption);
                         }
                         
                         // カスタム画像を選択
@@ -1140,14 +1147,10 @@ loadGuidelineImages();
                     };
                     img.onerror = function() {
                         alert('構図ガイドライン画像の読み込みに失敗しました。');
-                        guidelineSelect.value = 'none';
                     };
                     img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
-                
-                // ファイル入力をリセット（同じファイルを再選択可能にする）
-                e.target.value = '';
             });
 
             // ワーキングサイズ変更のイベントリスナーを追加
