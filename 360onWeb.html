@@ -212,6 +212,38 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
     
+        .tab-header {
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            padding-bottom: 0px;
+        }
+    
+        .tab-btn {
+            flex: 1;
+            padding: 2px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px 8px 0 0;      /* 上側のみ角丸 */
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+    
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.8);
+        }
+    
+        .tab-btn.active {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: rgba(76, 175, 80, 1.0);
+            color: white;
+            font-weight: 600;
+        }
+    
         .control-group {
             margin-bottom: 18px;
         }
@@ -690,6 +722,11 @@ z-index: 15;
                 </div>
                 
                 <div class="controls">
+                    <div class="tab-header">
+                        <button class="tab-btn active" data-tab="transform">変形</button>
+                        <button class="tab-btn" data-tab="export">出力</button>
+                    </div>
+                <div class="tab-content" id="transform-tab">
                     <div class="control-group">
                         <div class="control-label">
                             <span class="label-text">🔍 Zoom 拡大縮小</span>
@@ -805,7 +842,20 @@ z-index: 15;
                             <option value="rabbit_hole" style="background: #333; color: white;">Rabbit Hole</option>
                         </select>
                     </div>
+                    </div><!-- transform-tab終了 -->
 
+                    <div class="tab-content" id="export-tab" style="display: none;">
+                    <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                        <label for="workingResolutionSelect" style="color: white; font-size: 14px; white-space: nowrap; min-width: 120px;">
+                        Preview Res.
+                        </label>
+                        <select id="workingResolutionSelect" style="flex: 1; padding: 8px; border-radius: 5px; border: none; background: rgba(255,255,255,0.2); color: white; font-size: 14px;">
+                            <option value="256" style="background: #333; color: white;">Quick（速度重視）</option>
+                            <option value="512" style="background: #333; color: white;" selected>Balanced（標準）</option>
+                            <option value="1024" style="background: #333; color: white;">Detailed（表示重視）</option>
+                        </select>
+                    </div>
+                    
                     <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;"> 
                         <label for="formatSelect" style="color: white; font-size: 14px; white-space: nowrap; min-width: 120px;">
                         Format type
@@ -829,18 +879,8 @@ z-index: 15;
                         </select>
                     </div>
 
-                    <div class="control-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                        <label for="workingResolutionSelect" style="color: white; font-size: 14px; white-space: nowrap; min-width: 120px;">
-                        Preview Res.
-                        </label>
-                        <select id="workingResolutionSelect" style="flex: 1; padding: 8px; border-radius: 5px; border: none; background: rgba(255,255,255,0.2); color: white; font-size: 14px;">
-                            <option value="256" style="background: #333; color: white;">Quick（速度重視）</option>
-                            <option value="512" style="background: #333; color: white;" selected>Balanced（標準）</option>
-                            <option value="1024" style="background: #333; color: white;">Detailed（表示重視）</option>
-                        </select>
-                    </div>
-                    
                     <button class="download-btn" id="downloadBtn">📂 Download</button>
+		    </div><!-- export-tab終了 -->
                 </div>
             </div>
         </div>
@@ -1094,6 +1134,24 @@ function updateUndoRedoButtons() {
 loadDisplaySize();
 loadSampleImage();
 loadGuidelineImages();
+
+      // タブ切り替え機能
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+
+      tabButtons.forEach(button => {
+          button.addEventListener('click', function() {
+              const targetTab = this.getAttribute('data-tab');
+              
+              // すべてのタブボタンとコンテンツから active/表示 を削除
+              tabButtons.forEach(btn => btn.classList.remove('active'));
+              tabContents.forEach(content => content.style.display = 'none');
+              
+              // クリックされたタブをアクティブに
+              this.classList.add('active');
+              document.getElementById(targetTab + '-tab').style.display = 'block';
+          });
+      });
             
             // PC環境判定を追加（タッチデバイスでない場合にX/Y Shiftを表示）
             const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
